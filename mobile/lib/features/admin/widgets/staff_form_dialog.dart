@@ -228,7 +228,7 @@ class _CounterPicker extends StatelessWidget {
 
     return DropdownButtonFormField<int?>(
       key: const Key('staff-counter'),
-      value: value,
+      initialValue: value,
       isExpanded: true,
       decoration: const InputDecoration(
         labelText: 'Post to a counter (optional)',

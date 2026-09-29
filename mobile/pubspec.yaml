@@ -4,9 +4,10 @@ publish_to: "none"
 version: 1.0.0+1
 
 environment:
-  # 3.6 is the floor for Color.withValues, which replaced the deprecated
-  # Color.withOpacity used throughout the theme and widget library.
-  sdk: ">=3.6.0 <4.0.0"
+  # Flutter 3.35 / Dart 3.9 is the floor. Three APIs the app uses replaced
+  # ones deprecated during 2025: Color.withValues (3.27),
+  # RadioGroup (3.32) and DropdownButtonFormField.initialValue (3.33).
+  sdk: ">=3.9.0 <4.0.0"
 
 dependencies:
   flutter:

@@ -18,6 +18,11 @@ the server lets them work any desk.
 This repository contains only `lib/`, `test/`, and `pubspec.yaml` — the
 platform folders are generated, so they are not committed.
 
+**Flutter 3.35 or newer** (Dart 3.9). The app uses `Color.withValues`,
+`RadioGroup` and `DropdownButtonFormField.initialValue`, each of which
+replaced an API deprecated during 2025; on an older SDK `pub get` will say
+so rather than failing later with a wall of analyzer output.
+
 ```bash
 cd mobile
 

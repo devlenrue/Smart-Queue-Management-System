@@ -277,7 +277,7 @@ class _ServiceFormScreenState extends ConsumerState<ServiceFormScreen> {
                 const SizedBox(height: 12),
                 DropdownButtonFormField<ServiceStatus>(
                   key: const Key('service-status'),
-                  value: _status,
+                  initialValue: _status,
                   decoration: const InputDecoration(
                     labelText: 'Status',
                     border: OutlineInputBorder(),

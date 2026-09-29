@@ -24,22 +24,27 @@ class SettingsScreen extends ConsumerWidget {
           Text('Appearance', style: theme.textTheme.titleSmall),
           const SizedBox(height: 8),
           AppCard(
-            child: Column(
-              children: <Widget>[
-                for (final ThemeMode option in ThemeMode.values)
-                  RadioListTile<ThemeMode>(
-                    value: option,
-                    groupValue: mode,
-                    onChanged: (ThemeMode? value) {
-                      if (value != null) ref.read(themeModeProvider.notifier).set(value);
-                    },
-                    title: Text(switch (option) {
-                      ThemeMode.system => 'Match my device',
-                      ThemeMode.light => 'Light',
-                      ThemeMode.dark => 'Dark',
-                    }),
-                  ),
-              ],
+            // The selection lives on the group rather than on each tile:
+            // Flutter 3.32 moved it there, so a RadioListTile no longer
+            // takes groupValue or onChanged of its own.
+            child: RadioGroup<ThemeMode>(
+              groupValue: mode,
+              onChanged: (ThemeMode? value) {
+                if (value != null) ref.read(themeModeProvider.notifier).set(value);
+              },
+              child: Column(
+                children: <Widget>[
+                  for (final ThemeMode option in ThemeMode.values)
+                    RadioListTile<ThemeMode>(
+                      value: option,
+                      title: Text(switch (option) {
+                        ThemeMode.system => 'Match my device',
+                        ThemeMode.light => 'Light',
+                        ThemeMode.dark => 'Dark',
+                      }),
+                    ),
+                ],
+              ),
             ),
           ),
           const SizedBox(height: 24),

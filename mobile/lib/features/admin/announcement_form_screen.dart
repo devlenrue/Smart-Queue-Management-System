@@ -163,7 +163,7 @@ class _AnnouncementFormScreenState extends ConsumerState<AnnouncementFormScreen>
                   const SizedBox(height: 12),
                   DropdownButtonFormField<int?>(
                     key: const Key('announcement-service'),
-                    value: _serviceId,
+                    initialValue: _serviceId,
                     isExpanded: true,
                     decoration: const InputDecoration(
                       labelText: 'Who is it for?',

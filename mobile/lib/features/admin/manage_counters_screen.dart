@@ -355,7 +355,7 @@ class _CounterFormDialogState extends ConsumerState<CounterFormDialog> {
                     padding: const EdgeInsets.only(bottom: 12),
                     child: DropdownButtonFormField<int>(
                       key: const Key('counter-service'),
-                      value: _serviceId,
+                      initialValue: _serviceId,
                       isExpanded: true,
                       decoration: const InputDecoration(
                         labelText: 'Service',
@@ -395,7 +395,7 @@ class _CounterFormDialogState extends ConsumerState<CounterFormDialog> {
                   const SizedBox(height: 12),
                   DropdownButtonFormField<CounterStatus>(
                     key: const Key('counter-status'),
-                    value: _status,
+                    initialValue: _status,
                     isExpanded: true,
                     decoration: const InputDecoration(
                       labelText: 'Status',
@@ -509,7 +509,7 @@ class _AssignStaffToCounterDialogState extends ConsumerState<AssignStaffToCounte
                 }
                 return DropdownButtonFormField<int>(
                   key: const Key('counter-staff'),
-                  value: _staffId,
+                  initialValue: _staffId,
                   isExpanded: true,
                   decoration: const InputDecoration(
                     labelText: 'Staff member',
