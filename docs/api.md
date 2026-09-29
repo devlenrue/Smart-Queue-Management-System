@@ -536,25 +536,79 @@ defaults to the first open service.
 
 ---
 
-## 13. Reports — `/reports` (admin)
+## 13. Reports — `/reports` (admin) ✅ Phase 8
 
-All accept `?from=YYYY-MM-DD&to=YYYY-MM-DD&serviceId=`; default range is today.
+Four reports, one query contract. Every endpoint accepts
 
-| Endpoint | Columns (§41) |
+```text
+?from=YYYY-MM-DD&to=YYYY-MM-DD&serviceId=<id>&staffId=<id>&format=json|csv
+```
+
+and answers `{ range, rows, totals }`. Omitting the range means **today**; giving only `from` means
+that one day. Dates must exist on the calendar (`2026-13-40` is `422`) and a range may cover at most
+**366 days**. `staffId` is only read by `/reports/staff`. Every route is `admin` or `super_admin` —
+a clerk's own figures live at `/staff/me/statistics` (§8).
+
+| Endpoint | Row |
 | --- | --- |
-| `GET /reports/daily` | date, service, issued, served, cancelled, skipped, noShow, averageWaitMinutes, averageServiceMinutes |
-| `GET /reports/services` | service, customersServed, averageWaitMinutes, averageServiceMinutes, peakHour, peakQueueLength |
-| `GET /reports/staff` | staff, service, ticketsServed, ticketsSkipped, averageServiceMinutes |
-| `GET /reports/queues` | service, date, openedAt, closedAt, peakQueue, averageQueue, utilisationPercent |
+| `GET /reports/daily` | date, serviceId, serviceName, serviceCode, issued, served, cancelled, skipped, noShow, averageWaitMinutes, averageServiceMinutes |
+| `GET /reports/services` | serviceId, serviceName, serviceCode, status, issued, customersServed, cancelled, skipped, noShow, completionRate, averageWaitMinutes, averageServiceMinutes, peakHour, peakHourLabel, peakQueueLength |
+| `GET /reports/staff` | staffId, staffName, email, serviceId, serviceName, serviceCode, ticketsHandled, ticketsServed, ticketsSkipped, ticketsNoShow, ticketsRecalled, averageServiceMinutes |
+| `GET /reports/queues` | queueId, date, serviceId, serviceName, serviceCode, status, issued, served, openedAt, closedAt, peakQueue, averageQueue, countersUsed, utilisationPercent |
 
 ```json
 { "success": true, "message": "Daily report generated",
-  "data": { "range": { "from":"2026-09-29","to":"2026-09-29" },
-    "rows": [ { "date":"2026-09-29","serviceId":1,"serviceName":"Finance Office",
-                "issued":58,"served":45,"cancelled":4,"skipped":2,"noShow":1,
-                "averageWaitMinutes":18.4,"averageServiceMinutes":5.9 } ],
-    "totals": { "issued":186,"served":147,"cancelled":7,"skipped":5,"noShow":4 } } }
+  "data": { "range": { "from": "2026-09-29", "to": "2026-09-29" },
+    "rows": [ { "date": "2026-09-29", "serviceId": 1, "serviceName": "Finance Office",
+                "serviceCode": "FIN", "issued": 13, "served": 3, "cancelled": 1,
+                "skipped": 0, "noShow": 1,
+                "averageWaitMinutes": 18.5, "averageServiceMinutes": 7.7 } ],
+    "totals": { "issued": 215, "served": 150, "cancelled": 11, "skipped": 8, "noShow": 7,
+                "averageWaitMinutes": 17, "averageServiceMinutes": 8.3 } } }
 ```
+
+`totals` differs per report: the daily and service reports share the five counts plus both averages;
+`/reports/staff` totals `{ staff, ticketsHandled, ticketsServed, ticketsSkipped, ticketsNoShow,
+averageServiceMinutes }` (weighted by tickets served, not an average of averages); `/reports/queues`
+totals `{ queues, issued, served, peakQueue, averageUtilisationPercent }`.
+
+**Null is not zero.** `averageWaitMinutes` is `null` when no ticket in that group ever reached a
+counter. Averages are rounded to one decimal place.
+
+### 13.1 How the derived figures are defined
+
+Counts and averages are plain SQL. Four columns are not, and are computed in `report.service.ts`:
+
+| Figure | Definition |
+| --- | --- |
+| `averageWaitMinutes` | mean of `called_at − joined_at` over tickets that were called |
+| `averageServiceMinutes` | mean of `completed_at − service_started_at` over completed tickets |
+| `peakHour` | hour of day (0–23) in which the most tickets were **issued**; `peakHourLabel` is `"09:00–10:00"` |
+| `peakQueue` / `peakQueueLength` | the largest number of people waiting **at the same instant** — a sweep over each ticket's `[joined_at, called_at)` interval. A wait that ends exactly when another begins is not counted twice |
+| `averageQueue` | total waiting minutes ÷ minutes the queue was open — the mean number of people in the line while it ran |
+| `utilisationPercent` | serving minutes ÷ (counters used × minutes open) × 100, capped at 100 |
+| `openedAt` / `closedAt` | first ticket issued (or the queue row's creation) and the last activity recorded. A queue that is still open today reports `closedAt: null`, and its window is measured **to now** — an office open since eight and idle since ten is not 100% utilised |
+
+A ticket still waiting when the report runs counts as waiting until now, or until the end of its own
+day for a past date, so a queue left open on Monday cannot go on inflating Friday's figures.
+
+### 13.2 CSV export
+
+`?format=csv` returns the same rows as a file:
+
+```text
+HTTP/1.1 200 OK
+Content-Type: text/csv; charset=utf-8
+Content-Disposition: attachment; filename="smartqueue-daily-2026-09-29.csv"
+
+Date,Service,Code,Issued,Served,Cancelled,Skipped,No show,Average wait (min),Average service (min)
+2026-09-29,Finance Office,FIN,4,2,1,1,0,20,10
+```
+
+This is the **only** response in the API that is not the envelope of §1 — a spreadsheet cannot open
+one. RFC 4180: CRLF line endings, fields quoted only when they contain a comma, quote, newline or
+edge whitespace, embedded quotes doubled, and an empty cell where a value is `null`. The filename
+carries the range (`smartqueue-services-2026-09-01_2026-09-30.csv` for a multi-day report).
 
 ---
 

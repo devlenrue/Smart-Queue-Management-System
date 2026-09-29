@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
 
 import '../errors/error_mapper.dart';
@@ -69,6 +71,61 @@ class ApiClient {
       () => _dio.delete<dynamic>(path, queryParameters: _clean(query), cancelToken: cancelToken),
       parse,
     );
+  }
+
+  /// Fetches a body that is not an envelope.
+  ///
+  /// The CSV exports (§41) are the only endpoints in the API that answer
+  /// with a file rather than `{ success, data }`, so they need a way past
+  /// the unwrapping above. Errors still arrive as JSON — the server only
+  /// switches format once it knows it has a report to send — so a failure
+  /// is decoded and handed to the same [ErrorMapper] as everything else.
+  Future<String> getText(
+    String path, {
+    Map<String, dynamic>? query,
+    String accept = 'text/csv',
+    CancelToken? cancelToken,
+  }) async {
+    try {
+      final Response<String> response = await _dio.get<String>(
+        path,
+        queryParameters: _clean(query),
+        cancelToken: cancelToken,
+        options: Options(
+          responseType: ResponseType.plain,
+          headers: <String, dynamic>{'Accept': accept},
+        ),
+      );
+
+      final int status = response.statusCode ?? 0;
+      if (status >= 400) {
+        throw ErrorMapper.fromResponse(
+          Response<dynamic>(
+            requestOptions: response.requestOptions,
+            statusCode: status,
+            data: _decodeOrNull(response.data),
+          ),
+        );
+      }
+
+      return response.data ?? '';
+    } on DioException catch (error) {
+      throw ErrorMapper.fromDioException(error);
+    } on Failure {
+      rethrow;
+    } catch (error) {
+      throw ErrorMapper.fromObject(error);
+    }
+  }
+
+  static Map<String, dynamic>? _decodeOrNull(String? body) {
+    if (body == null || body.isEmpty) return null;
+    try {
+      final dynamic decoded = jsonDecode(body);
+      return decoded is Map<String, dynamic> ? decoded : null;
+    } on FormatException {
+      return null;
+    }
   }
 
   Future<ApiResponse<T>> _send<T>(

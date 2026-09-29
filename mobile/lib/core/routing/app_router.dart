@@ -12,6 +12,7 @@ import '../../features/admin/manage_staff_screen.dart';
 import '../../features/admin/manage_users_screen.dart';
 import '../../features/admin/queue_board_screen.dart';
 import '../../features/admin/queue_monitor_screen.dart';
+import '../../features/admin/reports_screen.dart';
 import '../../features/admin/service_form_screen.dart';
 import '../../features/admin/system_settings_screen.dart';
 import '../../features/admin/user_detail_screen.dart';
@@ -324,6 +325,10 @@ final Provider<GoRouter> goRouterProvider = Provider<GoRouter>((Ref ref) {
                 ),
               ),
             ],
+          ),
+          GoRoute(
+            path: RoutePaths.adminReports,
+            builder: (BuildContext context, GoRouterState state) => const ReportsScreen(),
           ),
           GoRoute(
             path: RoutePaths.adminAnnouncements,

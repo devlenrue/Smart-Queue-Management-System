@@ -44,6 +44,7 @@ class RoutePaths {
   static const String adminUserDetail = '/admin/users/:id';
   static const String adminQueues = '/admin/queues';
   static const String adminQueueBoard = '/admin/queues/:serviceId';
+  static const String adminReports = '/admin/reports';
   static const String adminAnnouncements = '/admin/announcements';
   static const String adminAnnouncementNew = '/admin/announcements/new';
   static const String adminAnnouncementEdit = '/admin/announcements/:id/edit';

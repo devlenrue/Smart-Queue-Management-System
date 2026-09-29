@@ -19,7 +19,7 @@
 | 5 — Customer app | ☑ complete — Flutter client: auth + 14 customer screens, plus the `/notifications` and `/announcements` endpoints it needs |
 | 6 — Staff app | ☑ complete — staff dashboard, statistics and counter endpoints (34 tests) + a 6-screen Flutter console |
 | 7 — Admin | ☑ complete — administration API (59 tests): users, roster, counters, service CRUD, announcements, system settings, institution dashboard + a 12-screen Flutter console |
-| 8 — Reporting | ☐ |
+| 8 — Reporting | ◐ backend complete — four management reports + CSV export (63 tests, all passing); the Flutter reporting console is written and awaits a `flutter test` run |
 | 9 — Testing | ☐ |
 | 10 — Documentation | ☐ |
 
@@ -125,7 +125,7 @@ database server.
 ```bash
 cd server
 npm run typecheck     # tsc --noEmit
-npm test              # 309 tests
+npm test              # 372 tests
 ```
 
 | Suite | Tests | Covers |
@@ -139,15 +139,20 @@ npm test              # 309 tests
 | `tests/notifications.test.ts` | 20 | the inbox: ownership isolation, filters, paging, idempotent mark-read, announcement visibility |
 | `tests/staff.test.ts` | 34 | the staff console: Rule 4 assignment scoping, Rule 5 counter conflicts, the on/off-duty switch, the dashboard, statistics attribution, handled-ticket history, §74 steps 7–13 |
 | `tests/admin.test.ts` | 59 | administration: user status/role/delete rules, the staff roster, counter CRUD and assignment, announcement fan-out on publish, super-admin-only system settings, the institution dashboard |
+| `tests/reports.test.ts` | 63 | the four reports against a hand-computed day, peak/average queue arithmetic, staff attribution, range validation, RBAC, and the CSV writer |
 
 ```bash
 cd mobile
 flutter analyze       # no issues
-flutter test          # 177 tests across 18 suites
+flutter test          # 191 tests across 19 suites
 ```
 
 The Flutter suites are listed in [`mobile/README.md`](mobile/README.md#2-tests); they run against
-fakes of the repository layer, so no HTTP and no platform channels are involved.
+fakes of the repository layer, so no HTTP and no platform channels are involved. 177 of them, across
+18 suites, have been run on a real Flutter 3.35 / Dart 3.9 install; `test/features/admin_reports_test.dart`
+(14 tests) was added afterwards and is the one suite still awaiting that run. Phase 8 adds a
+dependency — `path_provider`, for the directory an exported CSV is written to — so run
+`flutter pub get` before `flutter test`.
 
 ---
 

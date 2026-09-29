@@ -10,6 +10,7 @@ import counterRoutes from './counter.routes';
 import staffRoutes from './staff.routes';
 import userRoutes from './user.routes';
 import dashboardRoutes from './dashboard.routes';
+import reportRoutes from './report.routes';
 
 const router = Router();
 
@@ -25,5 +26,6 @@ router.use('/counters', counterRoutes);
 router.use('/staff', staffRoutes);
 router.use('/users', userRoutes);
 router.use('/dashboard', dashboardRoutes);
+router.use('/reports', reportRoutes);
 
 export default router;

@@ -69,8 +69,9 @@ All seeded users share the password `Password123!`:
 | Admin | `admin@smartqueue.test` |
 | Super admin | `super@smartqueue.test` |
 
-Each account lands in its own console. Reports (`/admin/reports`) is the one
-screen still to come — it arrives with Phase 8.
+Each account lands in its own console. An administrator also gets Reports
+(`/admin/reports`): four management reports over any date range, with a CSV
+export that saves the server's own file into the app's documents directory.
 
 ---
 
@@ -78,10 +79,12 @@ screen still to come — it arrives with Phase 8.
 
 ```bash
 flutter analyze         # static analysis — no issues
-flutter test            # 18 suites, 177 tests
+flutter test            # 19 suites, 191 tests
 ```
 
-Last run: green on Flutter 3.35 / Dart 3.9.
+Last run: green on Flutter 3.35 / Dart 3.9 for the first 18 suites (177
+tests). `admin_reports_test.dart` was added with Phase 8 and has not been run
+yet. Phase 8 also adds `path_provider`, so run `flutter pub get` first.
 
 | Suite | What it pins down |
 | --- | --- |
@@ -103,10 +106,13 @@ Last run: green on Flutter 3.35 / Dart 3.9.
 | `test/features/admin_users_test.dart` | Server-side search and filters, suspension, and who is allowed to administer whom |
 | `test/features/admin_staff_test.dart` | The roster and its postings, releasing a clerk, creating one, and counter validation |
 | `test/features/admin_monitor_test.dart` | The read-only live board, the announcement composer's publish warning, and the settings editor |
+| `test/features/admin_reports_test.dart` | The four report tabs, the date presets and service filter reaching the server, and the CSV export writing the server's own bytes |
 
-Widget tests run against fakes of the seven repositories
+Widget tests run against fakes of the eight repositories
 (`test/helpers/test_harness.dart`), so no HTTP and no platform channels are
-involved.
+involved. The CSV export is the one feature that would touch a channel, so it
+writes through a `ReportExporter` interface that the harness replaces with an
+in-memory fake.
 
 Both back offices poll for as long as they are on screen, so their tests
 finish with `tester.unmountAndDrain(harness)`: that takes the tree down and

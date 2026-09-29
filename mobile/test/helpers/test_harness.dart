@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:smartqueue/core/constants/enums.dart';
 import 'package:smartqueue/core/errors/failure.dart';
+import 'package:smartqueue/core/export/report_exporter.dart';
 import 'package:smartqueue/core/network/api_client.dart';
 import 'package:smartqueue/core/network/api_response.dart';
 import 'package:smartqueue/core/storage/prefs_storage.dart';
@@ -15,6 +16,7 @@ import 'package:smartqueue/models/announcement.dart';
 import 'package:smartqueue/models/counter.dart';
 import 'package:smartqueue/models/notification.dart';
 import 'package:smartqueue/models/queue.dart';
+import 'package:smartqueue/models/report.dart';
 import 'package:smartqueue/models/service.dart';
 import 'package:smartqueue/models/staff_dashboard.dart';
 import 'package:smartqueue/models/staff_member.dart';
@@ -28,6 +30,7 @@ import 'package:smartqueue/repositories/admin_repository.dart';
 import 'package:smartqueue/repositories/auth_repository.dart';
 import 'package:smartqueue/repositories/notification_repository.dart';
 import 'package:smartqueue/repositories/queue_repository.dart';
+import 'package:smartqueue/repositories/report_repository.dart';
 import 'package:smartqueue/repositories/service_repository.dart';
 import 'package:smartqueue/repositories/staff_repository.dart';
 import 'package:smartqueue/repositories/ticket_repository.dart';
@@ -35,6 +38,7 @@ import 'package:smartqueue/services/admin_api.dart';
 import 'package:smartqueue/services/auth_api.dart';
 import 'package:smartqueue/services/notification_api.dart';
 import 'package:smartqueue/services/queue_api.dart';
+import 'package:smartqueue/services/report_api.dart';
 import 'package:smartqueue/services/service_api.dart';
 import 'package:smartqueue/services/staff_api.dart';
 import 'package:smartqueue/services/ticket_api.dart';
@@ -767,6 +771,106 @@ class FakeAdminRepository extends AdminRepository {
   }
 }
 
+class FakeReportRepository extends ReportRepository {
+  FakeReportRepository() : super(ReportApi(_idleClient()));
+
+  DailyReport dailyValue = sampleDailyReport();
+  ServicesReport servicesValue = sampleServicesReport();
+  StaffReport staffValue = sampleStaffReport();
+  QueuesReport queuesValue = sampleQueuesReport();
+
+  /// What the server would have sent for `?format=csv`.
+  String csvValue = 'Date,Service,Code,Issued\r\n2026-09-29,Finance Office,FIN,4\r\n';
+
+  Object? failure;
+  Object? csvFailure;
+
+  int dailyCalls = 0;
+  int servicesCalls = 0;
+  int staffCalls = 0;
+  int queuesCalls = 0;
+  int csvCalls = 0;
+
+  String? lastFrom;
+  String? lastTo;
+  int? lastServiceId;
+  int? lastStaffId;
+  ReportKind? lastCsvKind;
+
+  void _record(String? from, String? to, int? serviceId, int? staffId) {
+    lastFrom = from;
+    lastTo = to;
+    lastServiceId = serviceId;
+    lastStaffId = staffId;
+  }
+
+  @override
+  Future<DailyReport> daily({String? from, String? to, int? serviceId}) async {
+    dailyCalls++;
+    _record(from, to, serviceId, null);
+    if (failure != null) throw failure!;
+    return dailyValue;
+  }
+
+  @override
+  Future<ServicesReport> services({String? from, String? to, int? serviceId}) async {
+    servicesCalls++;
+    _record(from, to, serviceId, null);
+    if (failure != null) throw failure!;
+    return servicesValue;
+  }
+
+  @override
+  Future<StaffReport> staff({String? from, String? to, int? serviceId, int? staffId}) async {
+    staffCalls++;
+    _record(from, to, serviceId, staffId);
+    if (failure != null) throw failure!;
+    return staffValue;
+  }
+
+  @override
+  Future<QueuesReport> queues({String? from, String? to, int? serviceId}) async {
+    queuesCalls++;
+    _record(from, to, serviceId, null);
+    if (failure != null) throw failure!;
+    return queuesValue;
+  }
+
+  @override
+  Future<String> csv(
+    ReportKind kind, {
+    String? from,
+    String? to,
+    int? serviceId,
+    int? staffId,
+  }) async {
+    csvCalls++;
+    lastCsvKind = kind;
+    _record(from, to, serviceId, staffId);
+    if (csvFailure != null) throw csvFailure!;
+    return csvValue;
+  }
+}
+
+/// Keeps an exported report in memory instead of writing to a documents
+/// directory that a widget test has no platform channel to reach.
+class FakeReportExporter implements ReportExporter {
+  String directory = '/storage/smartqueue-reports';
+  String? lastFilename;
+  String? lastContents;
+  Object? failure;
+  int saveCalls = 0;
+
+  @override
+  Future<String> save(String filename, String contents) async {
+    saveCalls++;
+    lastFilename = filename;
+    lastContents = contents;
+    if (failure != null) throw failure!;
+    return '$directory/$filename';
+  }
+}
+
 class TestHarness {
   TestHarness({required this.prefs});
 
@@ -779,6 +883,8 @@ class TestHarness {
   final FakeNotificationRepository notifications = FakeNotificationRepository();
   final FakeStaffRepository staff = FakeStaffRepository();
   final FakeAdminRepository admin = FakeAdminRepository();
+  final FakeReportRepository reports = FakeReportRepository();
+  final FakeReportExporter exporter = FakeReportExporter();
 
   /// Puts somebody in the session, so screens behind the auth guard build.
   void signIn({
@@ -810,6 +916,8 @@ class TestHarness {
         notificationRepositoryProvider.overrideWithValue(notifications),
         staffRepositoryProvider.overrideWithValue(staff),
         adminRepositoryProvider.overrideWithValue(admin),
+        reportRepositoryProvider.overrideWithValue(reports),
+        reportExporterProvider.overrideWithValue(exporter),
       ];
 
   /// Wraps a screen in the minimum real app scaffolding: a ProviderScope
@@ -1317,5 +1425,189 @@ SystemSetting sampleSystemSetting({
     value: value,
     description: description,
     updatedAt: '2026-09-29T08:00:00.000Z',
+  );
+}
+
+// ── report sample data (Phase 8) ──────────────────────────────────────────
+
+/// The fixture from `server/tests/reports.test.ts`, so the screen is shown
+/// the same numbers the backend suite proves by hand: four finance tickets
+/// (two served, one skipped, one cancelled) and one registrar ticket still
+/// waiting.
+DailyReport sampleDailyReport() {
+  return const DailyReport(
+    range: ReportRange(from: '2026-09-29', to: '2026-09-29'),
+    rows: <DailyReportRow>[
+      DailyReportRow(
+        date: '2026-09-29',
+        serviceId: 1,
+        serviceName: 'Finance Office',
+        serviceCode: 'FIN',
+        issued: 4,
+        served: 2,
+        cancelled: 1,
+        skipped: 1,
+        noShow: 0,
+        averageWaitMinutes: 20.0,
+        averageServiceMinutes: 10.0,
+      ),
+      DailyReportRow(
+        date: '2026-09-29',
+        serviceId: 2,
+        serviceName: 'Registrar',
+        serviceCode: 'REG',
+        issued: 1,
+        served: 0,
+        cancelled: 0,
+        skipped: 0,
+        noShow: 0,
+      ),
+    ],
+    totals: ReportTotals(
+      issued: 5,
+      served: 2,
+      cancelled: 1,
+      skipped: 1,
+      noShow: 0,
+      averageWaitMinutes: 20.0,
+      averageServiceMinutes: 10.0,
+    ),
+  );
+}
+
+ServicesReport sampleServicesReport() {
+  return const ServicesReport(
+    range: ReportRange(from: '2026-09-29', to: '2026-09-29'),
+    rows: <ServiceReportRow>[
+      ServiceReportRow(
+        serviceId: 1,
+        serviceName: 'Finance Office',
+        serviceCode: 'FIN',
+        status: 'open',
+        issued: 4,
+        customersServed: 2,
+        cancelled: 1,
+        skipped: 1,
+        noShow: 0,
+        completionRate: 50,
+        peakQueueLength: 3,
+        averageWaitMinutes: 20.0,
+        averageServiceMinutes: 10.0,
+        peakHour: 9,
+        peakHourLabel: '09:00–10:00',
+      ),
+      ServiceReportRow(
+        serviceId: 2,
+        serviceName: 'Registrar',
+        serviceCode: 'REG',
+        status: 'open',
+        issued: 1,
+        customersServed: 0,
+        cancelled: 0,
+        skipped: 0,
+        noShow: 0,
+        completionRate: 0,
+        peakQueueLength: 1,
+      ),
+    ],
+    totals: ReportTotals(
+      issued: 5,
+      served: 2,
+      cancelled: 1,
+      skipped: 1,
+      noShow: 0,
+      averageWaitMinutes: 20.0,
+      averageServiceMinutes: 10.0,
+    ),
+  );
+}
+
+StaffReport sampleStaffReport() {
+  return const StaffReport(
+    range: ReportRange(from: '2026-09-29', to: '2026-09-29'),
+    rows: <StaffReportRow>[
+      StaffReportRow(
+        staffId: 4,
+        staffName: 'Jane Wanjiku',
+        email: 'jane.staff@smartqueue.test',
+        serviceId: 1,
+        serviceName: 'Finance Office',
+        serviceCode: 'FIN',
+        ticketsHandled: 5,
+        ticketsServed: 1,
+        ticketsSkipped: 1,
+        ticketsNoShow: 0,
+        ticketsRecalled: 0,
+        averageServiceMinutes: 10.0,
+      ),
+      StaffReportRow(
+        staffId: 5,
+        staffName: 'Peter Otieno',
+        email: 'peter.staff@smartqueue.test',
+        serviceId: 1,
+        serviceName: 'Finance Office',
+        serviceCode: 'FIN',
+        ticketsHandled: 3,
+        ticketsServed: 1,
+        ticketsSkipped: 0,
+        ticketsNoShow: 0,
+        ticketsRecalled: 0,
+        averageServiceMinutes: 10.0,
+      ),
+    ],
+    totals: StaffReportTotals(
+      staff: 2,
+      ticketsHandled: 8,
+      ticketsServed: 2,
+      ticketsSkipped: 1,
+      ticketsNoShow: 0,
+      averageServiceMinutes: 10.0,
+    ),
+  );
+}
+
+QueuesReport sampleQueuesReport() {
+  return const QueuesReport(
+    range: ReportRange(from: '2026-09-29', to: '2026-09-29'),
+    rows: <QueueReportRow>[
+      QueueReportRow(
+        queueId: 3,
+        date: '2026-09-29',
+        serviceId: 1,
+        serviceName: 'Finance Office',
+        serviceCode: 'FIN',
+        status: 'closed',
+        issued: 4,
+        served: 2,
+        peakQueue: 3,
+        averageQueue: 1.6,
+        countersUsed: 2,
+        utilisationPercent: 25,
+        openedAt: '2026-09-29T06:00:00.000Z',
+        closedAt: '2026-09-29T06:40:00.000Z',
+      ),
+      QueueReportRow(
+        queueId: 6,
+        date: '2026-09-29',
+        serviceId: 2,
+        serviceName: 'Registrar',
+        serviceCode: 'REG',
+        status: 'waiting',
+        issued: 1,
+        served: 0,
+        peakQueue: 1,
+        averageQueue: 1.0,
+        countersUsed: 1,
+        utilisationPercent: 0,
+        openedAt: '2026-09-29T06:30:00.000Z',
+      ),
+    ],
+    totals: QueuesReportTotals(
+      queues: 2,
+      issued: 5,
+      served: 2,
+      peakQueue: 3,
+      averageUtilisationPercent: 13,
+    ),
   );
 }

@@ -77,6 +77,12 @@ class AdminShell extends ConsumerWidget {
       selectedIcon: Icons.monitor_heart_rounded,
     ),
     AdminDestination(
+      label: 'Reports',
+      path: RoutePaths.adminReports,
+      icon: Icons.insights_outlined,
+      selectedIcon: Icons.insights_rounded,
+    ),
+    AdminDestination(
       label: 'Announcements',
       path: RoutePaths.adminAnnouncements,
       icon: Icons.campaign_outlined,

@@ -42,10 +42,23 @@ export const nameField = (label: string) =>
     .min(2, `${label} must be at least 2 characters`)
     .max(80, `${label} is too long`);
 
-/** 'YYYY-MM-DD' */
+/**
+ * 'YYYY-MM-DD', and a date that exists.
+ *
+ * The shape check alone would wave `2026-13-40` through to the database,
+ * where it compares as a string and quietly returns nothing. Reports and
+ * queue lookups both filter on dates, so the calendar check belongs here.
+ */
 export const dateField = z
   .string()
-  .regex(/^\d{4}-\d{2}-\d{2}$/, 'Use the date format YYYY-MM-DD');
+  .regex(/^\d{4}-\d{2}-\d{2}$/, 'Use the date format YYYY-MM-DD')
+  .refine((value) => {
+    const [year, month, day] = value.split('-').map(Number);
+    const date = new Date(Date.UTC(year, month - 1, day));
+    return (
+      date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day
+    );
+  }, 'That date is not on the calendar');
 
 /** 'HH:mm' or 'HH:mm:ss' */
 export const timeField = z

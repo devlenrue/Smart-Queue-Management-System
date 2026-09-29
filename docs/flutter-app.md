@@ -66,7 +66,7 @@ flowchart TD
     AAnnounce --> AAnnEdit["/admin/announcements/:id/edit"]
 ```
 
-Reports (`/admin/reports`) is the one destination not yet in the rail — it arrives with Phase 8.
+Reports (`/admin/reports`) joined the rail in Phase 8, between the queue monitor and announcements.
 
 ### 1.1 Route guard
 
@@ -154,7 +154,7 @@ clerk from being offered an action that could only ever answer 409.
 | Announcements | list + composer + publish toggle |
 | Settings | system settings (super admin) |
 
-**As built (Phase 7).** Eleven of the twelve are in `lib/features/admin/`; Reports is Phase 8. The
+**As built (Phases 7–8).** All twelve are in `lib/features/admin/`. The
 shell is a `ShellRoute` — one navigator, a permanent rail on a laptop and a drawer on a phone — so a
 detail page such as `/admin/users/9` keeps the rail visible instead of covering it. The two charts
 are drawn with layout widgets and a `CustomPaint` arc rather than a chart package: the numbers come
@@ -164,6 +164,16 @@ actually sent.
 The dashboard polls at three times the shared interval (`adminPollIntervalProvider`), because an
 institution-wide count does not change as fast as one counter's queue and a supervisor leaves the
 page open all day.
+
+**Reports (Phase 8).** The four reports sit behind one set of controls — tab chips, quick ranges
+(Today / Last 7 / Last 30 / This month) or a hand-picked range, and a service filter — all held in
+`reportFilterProvider` and `reportKindProvider` rather than in the widget, so the export button in
+the app bar is guaranteed to export the period on screen. Nothing here polls: a report is a question
+asked once. Each tab is a `FutureProvider.autoDispose` that re-runs when the filter changes, and
+each body is a totals strip, one hand-drawn bar chart and the `AppDataTable` whose columns the CSV
+mirrors. Export downloads the server's CSV through `ApiClient.getText` — the one call that skips the
+envelope — and writes it through a `ReportExporter`, an interface whose real implementation uses
+`path_provider` and whose test double keeps the bytes in memory.
 
 Plus a **public display board** (`/display/:serviceCode`) — the optional §81 feature, also served as a
 static page by the API for a wall-mounted screen.
@@ -247,7 +257,13 @@ Admin
   adminDashboardProvider         StreamNotifier<AdminDashboard>   ← polls every 15 s
   queueMonitorProvider.family    StreamNotifier<QueueMonitor>     ← polls every 3 s
   adminServicesProvider · adminCountersProvider · adminStaffProvider · adminUsersProvider
-  reportsProvider.family         AsyncNotifier<ReportResult>
+
+Reports (no polling — a report is asked once)
+  reportFilterProvider           Notifier<ReportFilter>           ← range + service + preset
+  reportKindProvider             Notifier<ReportKind>             ← which tab
+  dailyReportProvider · servicesReportProvider · staffReportProvider · queuesReportProvider
+                                 FutureProvider.autoDispose       ← re-run when the filter changes
+  reportExportProvider           AsyncNotifier<String?>           ← CSV download → saved path
 ```
 
 Polling is implemented once, in `core/utils/polling.dart`:
@@ -359,6 +375,7 @@ mobile/lib/
 │   ├── network/    api_client.dart  interceptors.dart  api_response.dart
 │   ├── storage/    secure_storage.dart  prefs_storage.dart
 │   ├── errors/     failure.dart  error_mapper.dart
+│   ├── export/     report_exporter.dart
 │   └── utils/      validators.dart  formatters.dart  polling.dart  responsive.dart
 ├── models/         user.dart service.dart queue.dart ticket.dart notification.dart
 │                   announcement.dart counter.dart report.dart dashboard.dart
@@ -373,7 +390,9 @@ mobile/lib/
 │   ├── staff/      staff_shell.dart staff_dashboard_screen.dart current_queue_screen.dart
 │   │                staff_history_screen.dart staff_statistics_screen.dart
 │   │                staff_profile_screen.dart  widgets/
-│   └── admin/      dashboard/ services/ counters/ staff/ users/ queues/ reports/ announcements/
+│   └── admin/      admin_shell.dart admin_dashboard_screen.dart manage_{services,counters,
+│                    staff,users,announcements}_screen.dart queue_{monitor,board}_screen.dart
+│                    reports_screen.dart system_settings_screen.dart  widgets/
 └── widgets/        app_button.dart … chart_card.dart
 ```
 
@@ -387,6 +406,7 @@ go_router: ^14.2.0           # navigation
 dio: ^5.4.3                  # http
 flutter_secure_storage: ^9.2.2
 shared_preferences: ^2.2.3   # non-secret prefs (theme, poll interval)
+path_provider: ^2.1.3        # where an exported CSV report is written (§41)
 fl_chart: ^0.68.0            # dashboard charts
 intl: ^0.19.0                # dates, greetings
 qr_flutter: ^4.1.0           # optional QR ticket (§81)

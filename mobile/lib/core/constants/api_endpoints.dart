@@ -68,6 +68,15 @@ class ApiEndpoints {
   static String counterAssignment(int id) => '/counters/$id/assign';
   static const String systemSettings = '/system/settings';
 
+  // reports (Phase 8, §41)
+  static const String reportsDaily = '/reports/daily';
+  static const String reportsServices = '/reports/services';
+  static const String reportsStaff = '/reports/staff';
+  static const String reportsQueues = '/reports/queues';
+
+  /// `/reports/daily`, `/reports/services`, … — the tab's own wire name.
+  static String report(String kind) => '/reports/$kind';
+
   // notifications
   static const String notifications = '/notifications';
   static const String unreadCount = '/notifications/unread-count';
