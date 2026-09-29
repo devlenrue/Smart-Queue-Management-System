@@ -18,7 +18,7 @@ the target stack — but it changes how each phase is *proved*:
 | --- | --- | --- |
 | Database | MySQL 8, `smart_queue`, `database/migrations/*.mysql.sql` | A byte-for-byte equivalent SQLite schema (`*.sqlite.sql`) generated from the same table definitions, driven through the identical repository layer by a `SqliteDriver`. Every migration file is also syntax-checked. |
 | Backend | `mysql2` pool against MySQL | Full test suite + a live server run against the SQLite driver; all SQL stays within the portable subset, and MySQL-only clauses (`FOR UPDATE`, `ENUM`) are emitted by the driver, not scattered through the code |
-| Flutter | `flutter run` / `flutter build apk` | The SDK is unreachable from the sandbox, so the source is written to compile against the pinned SDK and read by eye against `flutter_lints`, then **run on the student's machine**: `flutter analyze` reports no issues and `flutter test` passes all 177 tests across 18 suites on Flutter 3.35 / Dart 3.9 |
+| Flutter | `flutter run` / `flutter build apk` | The SDK is unreachable from the sandbox, so the source is written to compile against the pinned SDK and read by eye against `flutter_lints`, then **run on the student's machine**: `flutter analyze` reports no issues and `flutter test` passes all 191 tests across 19 suites on Flutter 3.35 / Dart 3.9 |
 
 The database abstraction is one small interface (`DbDriver`) with two implementations. It is ~120 lines,
 it is documented, and it is the reason the queue engine can be tested at all in this environment. On the
@@ -311,7 +311,7 @@ clerk to it and published an announcement on a device against the live API. Repo
 
 ---
 
-## PHASE 8 — Reporting ◐
+## PHASE 8 — Reporting ☑
 
 **Objective.** Answer the four questions §41 asks — how was the day, how is each service doing, who
 did the work, how did the queues behave — from the same tables the consoles read, and let an
@@ -368,22 +368,81 @@ average wait 20.0, average service 10.0, peak queue 3, average queue 1.6, utilis
 the role matrix, the weighted staff totals, the `averageQueue ≤ peakQueue` invariant, and the CSV
 writer's quoting rules.
 
-**Outstanding.** `test/features/admin_reports_test.dart` (14 tests) has not been run — the sandbox
-has no Flutter SDK. Phase 8 closes when `flutter analyze && flutter test` are clean and an
-administrator has exported a CSV on a device.
+**Verified.** `flutter pub get && flutter analyze && flutter test` on the student's machine:
+no analyzer issues, **191 tests across 19 suites green**, including the 14 in
+`test/features/admin_reports_test.dart`.
 
 ---
 
-## PHASE 9 — Testing and hardening ☐
+## PHASE 9 — Testing and hardening ◐
 
-**Objective.** Confidence and polish.
+**Objective.** Confidence and polish: prove the parts of the system that only show themselves when
+something goes wrong.
 
-**Work.** Raise backend coverage on `services/` to ≥ 80 % · negative-path tests for every 4xx `code` ·
-loading and empty states audited on every screen (§64, §65) · responsive check at 360 / 768 / 1280 dp ·
-rate limits · CORS · `helmet` · dependency audit.
+**Built — the error contract.**
 
-**Test.** `npm test` green · `flutter test` green · the §85 success-criteria walkthrough performed
-end-to-end against MySQL.
+* `src/utils/AppError.ts` — `ErrorCode` was a bare type union, which meant the list of codes existed
+  three times (the type, the documentation, and whatever the tests happened to assert). It is now a
+  runtime `ERROR_CATALOGUE` mapping each code to the one HTTP status it is ever sent with; the type
+  is derived from it, the middleware reads the status from it, and `docs/api.md` §1 tabulates it.
+* `src/middleware/errorHandler.ts` — body-parser throws an `http-errors` object, not an `AppError`,
+  so an oversized body was falling through to the generic 500 branch and being reported to the user
+  as *our* fault. `entity.too.large` → `413 PAYLOAD_TOO_LARGE`, other `entity.*` → `400 BAD_REQUEST`.
+
+**Built — hardening.**
+
+* `src/middleware/rateLimit.ts` — the limiters were skipped whenever `NODE_ENV=test`, with no way to
+  turn them back on, so they had never once been executed. `RATE_LIMIT_IN_TESTS=true` re-enables them
+  for the one file that tests them. A third limiter, `apiLimiter`, now backs the whole of `/api/v1`
+  at a ceiling chosen against the client's actual polling rate rather than by feel
+  (`RATE_LIMIT_API_MAX`, default 1000 per 15 minutes; a customer app polling flat out uses ~300).
+* `helmet` and CORS were already wired; they are now asserted rather than assumed.
+
+**Modify.** `src/config/env.ts` (two new settings), `src/app.ts`, `.env.example`, `jest.config.js`
+(coverage thresholds), `package.json` (`npm run test:coverage`).
+
+**Tests added — 85, suite now 457 across 13 files.**
+
+* `tests/errors.test.ts` (46) — one negative path per error code, provoked through HTTP and checked
+  against the whole envelope, not just the status. The last test in the file walks the catalogue and
+  fails if a 4xx code has no test above it, so the contract cannot drift again.
+* `tests/security.test.ts` (9) — helmet's headers, CORS for an allowed and a disallowed origin, all
+  three limiters tripping with the right envelope and `RateLimit-*` headers, and per-IP isolation.
+* `tests/edge.cases.test.ts` (30) — the branches coverage reported as never executed: publishing an
+  announcement through an edit (and the fan-out not firing twice), releasing a desk when a clerk is
+  deactivated, moving a clerk between desks, optional filters and defaulted arguments, guard 3 and
+  guard 4 of the user service, and the report shapes the Phase 8 fixture cannot produce (a queue
+  that issued nothing; a clerk who handled tickets but completed none).
+
+**Coverage.** `src/services/` — statements 91.0 % → **96.6 %**, branches 69.3 % → **86.0 %**,
+lines 95.4 % → **99.4 %**. Now enforced: Jest fails under 95/80/95/97 for the services layer as a
+group, 90/70/90/90 for any single service file, and 88/68/86/90 for `src/` overall.
+
+**Flutter — written, not yet run.** 2 new files under `mobile/test` (21 suites total):
+
+* `test/responsive/layout_audit_test.dart` — five screens pumped at 360, 768 and 1280 dp. At each
+  width it asserts no layout exception was thrown, then that the breakpoint *did something*: a
+  `DataTable` on a laptop and a tablet, cards on a phone, and service cards one, two and three to a
+  row. Height is held at 1600 so a failure points at the width rule, not at scrolling.
+* `test/states/state_audit_test.dart` — a table of six screens with the fake state that starves each
+  one, run through the same three checks: something on screen while it loads (§64), an `EmptyState`
+  that explains itself rather than a blank list (§65), and an `ErrorState` with a retry that really
+  re-asks the server.
+* `test/helpers/test_harness.dart` — two new opt-in failure flags (`admin.listFailure`,
+  `staff.readFailure`). Both default to null, so no existing test changes behaviour.
+
+**Dependencies.** `npm audit` — **0 vulnerabilities**, with and without dev dependencies. The
+backend has eleven runtime dependencies and no transitive surprises, which is the point of not
+reaching for a framework-of-frameworks on a project this size.
+
+**Database.** None.
+
+**Test.** `npm test` green (457) · `npm run test:coverage` green against the thresholds ·
+`flutter analyze && flutter test` on the student's machine · the §85 walkthrough end-to-end.
+
+**Outstanding.** The two new Flutter suites have not been run — the sandbox has no Flutter SDK.
+Phase 9 closes when `flutter test` is green and the §85 walkthrough has been performed against
+MySQL on the marker's machine.
 
 ---
 
@@ -421,6 +480,6 @@ written.
 | 5 Customer app | ☑ | `flutter test` — 9 suites, green on Flutter 3.35 / Dart 3.9 |
 | 6 Staff app | ☑ | `tests/staff.test.ts` (34) · 4 Flutter suites |
 | 7 Admin | ☑ | `tests/admin.test.ts` (59) · 4 Flutter suites |
-| 8 Reports | ◐ | `tests/reports.test.ts` (63) · 1 Flutter suite awaiting a device run |
-| 9 Hardening | ☐ | coverage + responsive audit |
+| 8 Reports | ☑ | `tests/reports.test.ts` (63) · `flutter test` 191/191 |
+| 9 Hardening | ◐ | `errors` (46) · `security` (9) · `edge.cases` (30); 2 Flutter suites awaiting a device run |
 | 10 Docs | ☐ | clean-clone dry run |

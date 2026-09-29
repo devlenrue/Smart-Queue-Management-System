@@ -79,12 +79,13 @@ export that saves the server's own file into the app's documents directory.
 
 ```bash
 flutter analyze         # static analysis — no issues
-flutter test            # 19 suites, 191 tests
+flutter test            # 21 suites, ~228 tests
 ```
 
-Last run: green on Flutter 3.35 / Dart 3.9 for the first 18 suites (177
-tests). `admin_reports_test.dart` was added with Phase 8 and has not been run
-yet. Phase 8 also adds `path_provider`, so run `flutter pub get` first.
+Last run: green on Flutter 3.35 / Dart 3.9 for the first 19 suites (191
+tests). The two audit suites added with Phase 9 — `responsive/layout_audit`
+and `states/state_audit` — have not been run yet. Phase 8 added
+`path_provider`, so run `flutter pub get` first.
 
 | Suite | What it pins down |
 | --- | --- |
@@ -107,10 +108,14 @@ yet. Phase 8 also adds `path_provider`, so run `flutter pub get` first.
 | `test/features/admin_staff_test.dart` | The roster and its postings, releasing a clerk, creating one, and counter validation |
 | `test/features/admin_monitor_test.dart` | The read-only live board, the announcement composer's publish warning, and the settings editor |
 | `test/features/admin_reports_test.dart` | The four report tabs, the date presets and service filter reaching the server, and the CSV export writing the server's own bytes |
+| `test/responsive/layout_audit_test.dart` | Five screens survive 360, 768 and 1280 dp, and the breakpoints actually switch the layout |
+| `test/states/state_audit_test.dart` | Six screens show a loading affordance, a self-explaining empty state, and an error state whose retry really re-asks the server |
 
 Widget tests run against fakes of the eight repositories
 (`test/helpers/test_harness.dart`), so no HTTP and no platform channels are
-involved. The CSV export is the one feature that would touch a channel, so it
+involved. Two of the fakes take an optional failure — `admin.listFailure`,
+`staff.readFailure` — which is how the state audit reaches an error screen
+without a network. The CSV export is the one feature that would touch a channel, so it
 writes through a `ReportExporter` interface that the harness replaces with an
 in-memory fake.
 

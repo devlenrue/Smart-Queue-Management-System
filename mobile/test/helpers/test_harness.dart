@@ -362,6 +362,9 @@ class FakeStaffRepository extends StaffRepository {
   Object? dashboardFailure;
   Object? actionFailure;
 
+  /// Makes the history and statistics reads fail, for the error-state audit.
+  Object? readFailure;
+
   int dashboardCalls = 0;
   int callNextCalls = 0;
   int? lastCalledTicketId;
@@ -375,7 +378,10 @@ class FakeStaffRepository extends StaffRepository {
   }
 
   @override
-  Future<StaffStatistics> statistics({String? from, String? to}) async => statisticsValue;
+  Future<StaffStatistics> statistics({String? from, String? to}) async {
+    if (readFailure != null) throw readFailure!;
+    return statisticsValue;
+  }
 
   @override
   Future<Paged<Ticket>> handledTickets({
@@ -385,6 +391,7 @@ class FakeStaffRepository extends StaffRepository {
     String? from,
     String? to,
   }) async {
+    if (readFailure != null) throw readFailure!;
     final List<Ticket> filtered = status == null
         ? handled
         : handled.where((Ticket t) => t.status.wire == status).toList(growable: false);
@@ -465,6 +472,9 @@ class FakeAdminRepository extends AdminRepository {
   Object? dashboardFailure;
   Object? actionFailure;
 
+  /// Makes the list endpoints fail, for the error-state audit.
+  Object? listFailure;
+
   int dashboardCalls = 0;
   int userCalls = 0;
   int staffCalls = 0;
@@ -494,6 +504,7 @@ class FakeAdminRepository extends AdminRepository {
     lastUserSearch = search;
     lastUserRole = role;
     lastUserStatus = status;
+    if (listFailure != null) throw listFailure!;
 
     final List<User> filtered = userList.where((User user) {
       final bool matchesText = search == null ||
@@ -547,6 +558,7 @@ class FakeAdminRepository extends AdminRepository {
     staffCalls++;
     lastStaffSearch = search;
     lastUnassignedOnly = unassigned;
+    if (listFailure != null) throw listFailure!;
 
     final List<StaffMember> filtered = staffList.where((StaffMember member) {
       final bool matchesText = search == null ||
@@ -699,6 +711,7 @@ class FakeAdminRepository extends AdminRepository {
     int? serviceId,
     String? search,
   }) async {
+    if (listFailure != null) throw listFailure!;
     final List<ManagedAnnouncement> filtered = status == null
         ? announcementList
         : announcementList

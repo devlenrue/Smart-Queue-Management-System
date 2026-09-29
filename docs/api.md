@@ -51,9 +51,29 @@ a friendly message; `message` is already user-safe. Raw exceptions are never ret
 | 403 | Authenticated but not permitted (wrong role, not assigned to service) |
 | 404 | Resource does not exist |
 | 409 | Business-rule conflict (duplicate ticket, queue full, closed, bad state transition) |
+| 413 | Request body over the 256 kB ceiling |
 | 422 | Validation failed |
 | 429 | Rate limited |
 | 500 | Unexpected server error |
+
+### Error code catalogue
+
+Every code the API can return, and the one status it is always paired with. This is not prose kept in
+step by hand: the list lives in `server/src/utils/AppError.ts` as `ERROR_CATALOGUE`, the middleware
+reads the status from it, and `server/tests/errors.test.ts` walks it and fails the build if a 4xx code
+has no negative-path test.
+
+| Status | Codes | Meaning |
+| --- | --- | --- |
+| 400 | `BAD_REQUEST` | The request could not be read: unparseable JSON, or a clerk calling `call-next` with no counter to call it to |
+| 401 | `UNAUTHENTICATED` · `INVALID_CREDENTIALS` · `TOKEN_EXPIRED` · `TOKEN_REVOKED` | No usable identity. `INVALID_CREDENTIALS` is deliberately identical for a wrong password and an unknown email — no account enumeration |
+| 403 | `FORBIDDEN` · `ACCOUNT_INACTIVE` · `ACCOUNT_SUSPENDED` · `NOT_ASSIGNED_TO_SERVICE` | Identified, but not allowed. The last one is Rule 4 |
+| 404 | `NOT_FOUND` · `NO_WAITING_TICKETS` | Nothing there. `NO_WAITING_TICKETS` answers `call-next` on an empty queue |
+| 409 | `EMAIL_TAKEN` · `PHONE_TAKEN` · `SERVICE_CODE_TAKEN` · `COUNTER_NUMBER_TAKEN` · `STAFF_ALREADY_ASSIGNED` · `DUPLICATE_ACTIVE_TICKET` · `REJOIN_NOT_ALLOWED` · `SERVICE_CLOSED` · `SERVICE_INACTIVE` · `OUTSIDE_SERVICE_HOURS` · `QUEUE_PAUSED` · `QUEUE_CLOSED` · `QUEUE_FULL` · `INVALID_STATE_TRANSITION` · `CANCELLATION_NOT_ALLOWED` · `COUNTER_BUSY` · `COUNTER_OFFLINE` · `CONFLICT` | The request is well formed but fights the current state of the world. This is where the fourteen business rules of §59 land |
+| 413 | `PAYLOAD_TOO_LARGE` | Over `express.json({ limit: '256kb' })`. Translated deliberately — an untranslated body-parser error would surface as a 500 |
+| 422 | `VALIDATION_ERROR` | Zod rejected the body, query or params. The only code that routinely fills `errors[]` with `{ field, message }` |
+| 429 | `RATE_LIMITED` | A limiter tripped. See §15 |
+| 500 | `INTERNAL_ERROR` · `DATABASE_ERROR` | Our fault. The message is generic and the stack is logged, never sent (§63) |
 
 ---
 
@@ -638,3 +658,20 @@ interprets a value only where it needs to. Sending `null` for a key **deletes** 
 * **Search** — `?search=` does a `LIKE` over a documented set of columns per endpoint (§40).
 * **Idempotency** — every state-transition endpoint is safe to retry: a second `complete` on an already
   completed ticket returns `409 INVALID_STATE_TRANSITION`, never a double count.
+
+### Transport hardening
+
+Configured in `server/src/app.ts` and proved in `server/tests/security.test.ts`.
+
+| Control | Setting | Notes |
+| --- | --- | --- |
+| Security headers | `helmet()` | `X-Content-Type-Options: nosniff`, `X-Frame-Options`, HSTS, `X-DNS-Prefetch-Control`. `X-Powered-By` is removed |
+| CORS | `CORS_ORIGIN` (comma-separated, `*` in development) | An origin that is not on the list simply gets no `Access-Control-Allow-Origin` back |
+| Body size | `256kb` on JSON and urlencoded | Over it → `413 PAYLOAD_TOO_LARGE` |
+| Auth limiter | `RATE_LIMIT_AUTH_MAX`, default 30 per 15 min per IP | `/auth/register`, `/auth/login` — brute-force protection |
+| Join limiter | `RATE_LIMIT_JOIN_MAX`, default 20 per 15 min per IP | `/services/:id/queue/join` — stops a stuck client hammering the queue |
+| API limiter | `RATE_LIMIT_API_MAX`, default 1000 per 15 min per IP | Backstop over everything under `/api/v1`. A customer app polling flat out uses ~300 of it, so the limiter only ever catches abuse |
+
+All three limiters answer with the normal envelope and `RateLimit-*` standard headers, so a client can
+back off before it is cut off. They are skipped under `NODE_ENV=test` unless `RATE_LIMIT_IN_TESTS=true`,
+which is how the security suite exercises them without making every other suite flaky.

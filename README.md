@@ -19,8 +19,8 @@
 | 5 — Customer app | ☑ complete — Flutter client: auth + 14 customer screens, plus the `/notifications` and `/announcements` endpoints it needs |
 | 6 — Staff app | ☑ complete — staff dashboard, statistics and counter endpoints (34 tests) + a 6-screen Flutter console |
 | 7 — Admin | ☑ complete — administration API (59 tests): users, roster, counters, service CRUD, announcements, system settings, institution dashboard + a 12-screen Flutter console |
-| 8 — Reporting | ◐ backend complete — four management reports + CSV export (63 tests, all passing); the Flutter reporting console is written and awaits a `flutter test` run |
-| 9 — Testing | ☐ |
+| 8 — Reporting | ☑ complete — four management reports + CSV export (63 tests) + a Flutter reporting console; 191 Flutter tests green |
+| 9 — Testing | ◐ backend complete — error-code catalogue, one negative path per 4xx code, security suite, enforced coverage (85 tests, 457 total); two Flutter audit suites await a `flutter test` run |
 | 10 — Documentation | ☐ |
 
 Full plan: [`docs/roadmap.md`](docs/roadmap.md).
@@ -125,7 +125,7 @@ database server.
 ```bash
 cd server
 npm run typecheck     # tsc --noEmit
-npm test              # 372 tests
+npm test              # 457 tests across 13 suites
 ```
 
 | Suite | Tests | Covers |
@@ -140,19 +140,30 @@ npm test              # 372 tests
 | `tests/staff.test.ts` | 34 | the staff console: Rule 4 assignment scoping, Rule 5 counter conflicts, the on/off-duty switch, the dashboard, statistics attribution, handled-ticket history, §74 steps 7–13 |
 | `tests/admin.test.ts` | 59 | administration: user status/role/delete rules, the staff roster, counter CRUD and assignment, announcement fan-out on publish, super-admin-only system settings, the institution dashboard |
 | `tests/reports.test.ts` | 63 | the four reports against a hand-computed day, peak/average queue arithmetic, staff attribution, range validation, RBAC, and the CSV writer |
+| `tests/errors.test.ts` | 46 | one negative path per error code, plus a test that fails if a 4xx code is added without one |
+| `tests/security.test.ts` | 9 | helmet headers, CORS, and all three rate limiters tripping per IP |
+| `tests/edge.cases.test.ts` | 30 | the branches a happy path never reaches: clean-up, optional filters, defaulted arguments, defence-in-depth guards |
 
 ```bash
 cd mobile
 flutter analyze       # no issues
-flutter test          # 191 tests across 19 suites
+flutter test          # 191 tests across 19 suites (21 once Phase 9 is run)
 ```
 
 The Flutter suites are listed in [`mobile/README.md`](mobile/README.md#2-tests); they run against
-fakes of the repository layer, so no HTTP and no platform channels are involved. 177 of them, across
-18 suites, have been run on a real Flutter 3.35 / Dart 3.9 install; `test/features/admin_reports_test.dart`
-(14 tests) was added afterwards and is the one suite still awaiting that run. Phase 8 adds a
-dependency — `path_provider`, for the directory an exported CSV is written to — so run
-`flutter pub get` before `flutter test`.
+fakes of the repository layer, so no HTTP and no platform channels are involved. 191 of them, across
+19 suites, have been run on a real Flutter 3.35 / Dart 3.9 install. Phase 9 adds two more —
+`test/responsive/layout_audit_test.dart` and `test/states/state_audit_test.dart` — which have not
+been run yet.
+
+Coverage is measured and enforced:
+
+```bash
+cd server
+npm run test:coverage   # fails below the thresholds in jest.config.js
+```
+
+`src/services/`, the business-logic layer, sits at 96.6% of statements and 86.0% of branches.
 
 ---
 
