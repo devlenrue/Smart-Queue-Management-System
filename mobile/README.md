@@ -77,9 +77,11 @@ screen still to come — it arrives with Phase 8.
 ## 2. Tests
 
 ```bash
-flutter test            # all suites
-flutter analyze         # static analysis
+flutter analyze         # static analysis — no issues
+flutter test            # 18 suites, 177 tests
 ```
+
+Last run: green on Flutter 3.35 / Dart 3.9.
 
 | Suite | What it pins down |
 | --- | --- |

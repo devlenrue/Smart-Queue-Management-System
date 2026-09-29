@@ -16,9 +16,9 @@
 | 2 — Database | ☑ complete — 14 tables, 5 migrations × 2 dialects, deterministic seed, 20 schema tests |
 | 3 — Backend foundation (auth) | ☑ complete — bcrypt + JWT, 4 roles, validation, rate limiting, 30 auth tests |
 | 4 — Queue engine ★ | ☑ complete — join, ticket numbering, position, calling, serving, concurrency, 108 tests |
-| 5 — Customer app | ◐ written, awaiting a device run — Flutter client: auth + 14 customer screens, 9 test suites, plus the `/notifications` and `/announcements` endpoints it needs |
-| 6 — Staff app | ◐ written, awaiting a device run — staff dashboard, statistics and counter endpoints (34 tests) + a 6-screen Flutter console |
-| 7 — Admin | ◐ written, awaiting a device run — administration API (59 tests): users, roster, counters, service CRUD, announcements, system settings, institution dashboard + a 12-screen Flutter console |
+| 5 — Customer app | ☑ complete — Flutter client: auth + 14 customer screens, plus the `/notifications` and `/announcements` endpoints it needs |
+| 6 — Staff app | ☑ complete — staff dashboard, statistics and counter endpoints (34 tests) + a 6-screen Flutter console |
+| 7 — Admin | ☑ complete — administration API (59 tests): users, roster, counters, service CRUD, announcements, system settings, institution dashboard + a 12-screen Flutter console |
 | 8 — Reporting | ☐ |
 | 9 — Testing | ☐ |
 | 10 — Documentation | ☐ |
@@ -139,6 +139,15 @@ npm test              # 309 tests
 | `tests/notifications.test.ts` | 20 | the inbox: ownership isolation, filters, paging, idempotent mark-read, announcement visibility |
 | `tests/staff.test.ts` | 34 | the staff console: Rule 4 assignment scoping, Rule 5 counter conflicts, the on/off-duty switch, the dashboard, statistics attribution, handled-ticket history, §74 steps 7–13 |
 | `tests/admin.test.ts` | 59 | administration: user status/role/delete rules, the staff roster, counter CRUD and assignment, announcement fan-out on publish, super-admin-only system settings, the institution dashboard |
+
+```bash
+cd mobile
+flutter analyze       # no issues
+flutter test          # 177 tests across 18 suites
+```
+
+The Flutter suites are listed in [`mobile/README.md`](mobile/README.md#2-tests); they run against
+fakes of the repository layer, so no HTTP and no platform channels are involved.
 
 ---
 

@@ -18,7 +18,7 @@ the target stack — but it changes how each phase is *proved*:
 | --- | --- | --- |
 | Database | MySQL 8, `smart_queue`, `database/migrations/*.mysql.sql` | A byte-for-byte equivalent SQLite schema (`*.sqlite.sql`) generated from the same table definitions, driven through the identical repository layer by a `SqliteDriver`. Every migration file is also syntax-checked. |
 | Backend | `mysql2` pool against MySQL | Full test suite + a live server run against the SQLite driver; all SQL stays within the portable subset, and MySQL-only clauses (`FOR UPDATE`, `ENUM`) are emitted by the driver, not scattered through the code |
-| Flutter | `flutter run` / `flutter build apk` | Source is written to compile against the pinned SDK and linted by eye against `flutter_lints`; it **cannot be compiled here** and must be run with `flutter pub get && flutter run` on a machine with the SDK |
+| Flutter | `flutter run` / `flutter build apk` | The SDK is unreachable from the sandbox, so the source is written to compile against the pinned SDK and read by eye against `flutter_lints`, then **run on the student's machine**: `flutter analyze` reports no issues and `flutter test` passes all 177 tests across 18 suites on Flutter 3.35 / Dart 3.9 |
 
 The database abstraction is one small interface (`DbDriver`) with two implementations. It is ~120 lines,
 it is documented, and it is the reason the queue engine can be tested at all in this environment. On the
@@ -147,7 +147,7 @@ audit trail, admin monitor, pause/resume, cancel.
 
 ---
 
-## PHASE 5 — Customer app ◐
+## PHASE 5 — Customer app ☑
 
 **Objective.** A customer can register, browse services, take a ticket and watch it move — against the
 real API.
@@ -190,7 +190,7 @@ against the live API.
 
 ---
 
-## PHASE 6 — Staff app ◐
+## PHASE 6 — Staff app ☑
 
 **Objective.** A staff member runs a counter end to end.
 
@@ -252,7 +252,7 @@ Four Flutter suites: `staff_dashboard_test`, `staff_queue_test`, `staff_actions_
 
 ---
 
-## PHASE 7 — Admin ◐
+## PHASE 7 — Admin ☑
 
 **Objective.** Services, counters, staff, users, queue monitoring and announcements.
 
@@ -372,9 +372,9 @@ written.
 | 2 Database | ☑ | migration + schema tests (20) |
 | 3 Auth | ☑ | `tests/auth.test.ts` (30) |
 | 4 Queue engine | ☑ | `queue.engine` (41), `transitions` (53), `concurrency` (14) |
-| 5 Customer app | ☐ | widget tests + manual run |
-| 6 Staff app | ◐ | `tests/staff.test.ts` (34) ☑ · Flutter awaiting a device run |
-| 7 Admin | ☐ | role matrix tests |
+| 5 Customer app | ☑ | `flutter test` — 9 suites, green on Flutter 3.35 / Dart 3.9 |
+| 6 Staff app | ☑ | `tests/staff.test.ts` (34) · 4 Flutter suites |
+| 7 Admin | ☑ | `tests/admin.test.ts` (59) · 4 Flutter suites |
 | 8 Reports | ☐ | `tests/reports.test.ts` |
 | 9 Hardening | ☐ | coverage + responsive audit |
 | 10 Docs | ☐ | clean-clone dry run |
