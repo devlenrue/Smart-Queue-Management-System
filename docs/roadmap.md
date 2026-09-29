@@ -1,0 +1,259 @@
+# SmartQueue — Development Roadmap
+
+Ten phases, built and verified in order. Each phase follows the template required by §84 of the brief:
+**objective · architecture changes · files to create · files to modify · database changes · API changes ·
+Flutter changes · testing procedure**.
+
+Legend: ☐ not started · ◧ in progress · ☑ done and verified
+
+---
+
+## Verification strategy (read this first)
+
+The development sandbox used to build this project has a restricted network: **MySQL cannot be installed
+and Flutter's SDK/pub.dev are unreachable.** That does not change the deliverable — MySQL and Flutter stay
+the target stack — but it changes how each phase is *proved*:
+
+| Component | Target (student's machine / marker's machine) | How it is verified while building |
+| --- | --- | --- |
+| Database | MySQL 8, `smart_queue`, `database/migrations/*.mysql.sql` | A byte-for-byte equivalent SQLite schema (`*.sqlite.sql`) generated from the same table definitions, driven through the identical repository layer by a `SqliteDriver`. Every migration file is also syntax-checked. |
+| Backend | `mysql2` pool against MySQL | Full test suite + a live server run against the SQLite driver; all SQL stays within the portable subset, and MySQL-only clauses (`FOR UPDATE`, `ENUM`) are emitted by the driver, not scattered through the code |
+| Flutter | `flutter run` / `flutter build apk` | Source is written to compile against the pinned SDK and linted by eye against `flutter_lints`; it **cannot be compiled here** and must be run with `flutter pub get && flutter run` on a machine with the SDK |
+
+The database abstraction is one small interface (`DbDriver`) with two implementations. It is ~120 lines,
+it is documented, and it is the reason the queue engine can be tested at all in this environment. On the
+marker's machine `DATABASE_URL=mysql://…` selects the MySQL driver and nothing else changes.
+
+---
+
+## PHASE 0 — Design freeze ☑
+
+**Objective.** Agree the architecture, schema, API surface, screens and rules before any code exists.
+
+**Deliverables.** `docs/architecture.md` · `docs/database.md` (ER diagram + full table reference) ·
+`docs/api.md` · `docs/queue-engine.md` (state machine + concurrency) · `docs/flutter-app.md` ·
+`docs/roadmap.md` · `database/diagrams/er-diagram.mmd`.
+
+**Exit criteria.** The 14 business rules of §59 each have a named enforcement point; every API endpoint in
+§50–§57 appears in the spec; every screen in §43 appears in the navigation map.
+
+---
+
+## PHASE 1 — Project setup ☐
+
+**Objective.** A running Express server, a compiling Flutter shell, and a repo that a marker can clone.
+
+**Architecture.** Introduces `server/` (TypeScript build, env config, health route) and `mobile/`
+(Flutter skeleton with theme + router). No domain logic yet.
+
+**Create.**
+`server/package.json`, `tsconfig.json`, `.env.example`, `.eslintrc`, `src/config/env.ts`,
+`src/app.ts`, `src/server.ts`, `src/utils/logger.ts`, `src/utils/AppError.ts`,
+`src/utils/apiResponse.ts`, `src/middleware/errorHandler.ts`, `src/middleware/notFound.ts`,
+`src/routes/index.ts`, `src/routes/health.routes.ts`, `tests/setup.ts`;
+`mobile/pubspec.yaml`, `lib/main.dart`, `lib/app.dart`, `lib/core/theme/app_theme.dart`,
+`lib/core/constants/*`, `lib/core/routing/*`; root `.gitignore`.
+
+**Modify.** `README.md`.
+
+**Database.** None.
+
+**API.** `GET /api/v1/system/health`.
+
+**Flutter.** App boots to a placeholder splash using the real theme and router.
+
+**Test.** `npm run dev` → `curl localhost:5000/api/v1/system/health` returns the success envelope;
+`npm test` runs; `npm run build` type-checks clean.
+
+---
+
+## PHASE 2 — Database ☐
+
+**Objective.** The complete schema, applied by a repeatable migration runner, plus realistic seed data.
+
+**Architecture.** Adds `src/db/` — `driver.ts` (interface), `mysqlDriver.ts`, `sqliteDriver.ts`,
+`pool.ts`, `transaction.ts`, `migrate.ts`, `seed.ts`.
+
+**Create.** `database/migrations/001…012` (MySQL + SQLite variants), `database/seed/seed-data.ts`,
+`src/db/*`, `src/types/db.ts`.
+
+**Database.** All 12 migrations: 11 domain tables + support tables, every FK, unique key, check and index
+from `docs/database.md`, including the `active_service_id` generated column.
+
+**API.** None.
+
+**Flutter.** None.
+
+**Test.** `npm run db:migrate` twice (second run is a no-op) · `npm run db:seed` · a schema test asserting
+every expected table, unique key and index exists · a constraint test proving a duplicate active ticket is
+rejected by the **database**, not just the app.
+
+---
+
+## PHASE 3 — Backend foundation ☐
+
+**Objective.** Authentication, authorisation, validation and error handling — the frame every later
+endpoint drops into.
+
+**Create.** `src/utils/jwt.ts`, `src/utils/password.ts`, `src/middleware/auth.ts`, `rbac.ts`,
+`validate.ts`, `rateLimit.ts`, `src/repositories/user.repository.ts`,
+`src/services/auth.service.ts`, `src/controllers/auth.controller.ts`,
+`src/validators/auth.validators.ts`, `src/routes/auth.routes.ts`, `tests/auth.test.ts`.
+
+**Database.** Uses `users` and `revoked_tokens`.
+
+**API.** `POST /auth/register` · `POST /auth/login` · `GET /auth/me` · `POST /auth/logout` ·
+`POST /auth/change-password` · `GET /profile` · `PUT /profile`.
+
+**Flutter.** None yet.
+
+**Test.** Register → 201 with a token · duplicate email → 409 · weak password → 422 · login wrong
+password → 401 · `/auth/me` without a token → 401 · with a customer token on an admin route → 403 ·
+logout then reuse the token → 401 · assert no response body ever contains `password_hash`.
+
+---
+
+## PHASE 4 — Queue engine ★ ☐
+
+**Objective.** The core of the project: services, daily queues, concurrency-safe ticket issuing, position
+and estimate maths, and every state transition.
+
+**Create.** repositories `service`, `queue`, `ticket`, `counter`, `event`, `notification`;
+services `service.service.ts`, `queue.service.ts`, `ticket.service.ts`, `estimation.service.ts`,
+`notification.service.ts`; controllers + validators + routes for services / queues / tickets;
+`tests/queue.engine.test.ts`, `tests/concurrency.test.ts`, `tests/transitions.test.ts`.
+
+**Database.** Reads/writes `services`, `service_hours`, `queue_settings`, `queues`, `queue_tickets`,
+`queue_events`, `service_counters`, `notifications`.
+
+**API.** All of §51 Services, §52 Queues and §53 Tickets.
+
+**Flutter.** None yet.
+
+**Test.** The rule-by-rule matrix from `docs/queue-engine.md` §7, plus: 25 parallel joins produce
+sequences 1…25 with no duplicate (the headline concurrency test); position maths against a hand-computed
+fixture; the full `waiting → called → serving → completed` path; every illegal transition returns 409.
+
+---
+
+## PHASE 5 — Customer app ☐
+
+**Objective.** A customer can register, browse services, take a ticket and watch it move — against the
+real API.
+
+**Create.** `mobile/lib/core/network/*`, `storage/*`, `errors/*`, `models/*`, `services/*`,
+`repositories/*`, `providers/auth_providers.dart`, `providers/customer_providers.dart`,
+`features/auth/*`, `features/customer/*`, the shared `widgets/*`, and the widget tests of
+`docs/flutter-app.md` §10.
+
+**Modify.** `app_router.dart` (real routes + guard), `main.dart` (ProviderScope + bootstrap).
+
+**Database.** None.
+
+**API.** Consumes auth, services, queues, tickets, notifications, announcements.
+
+**Test.** Manual: register → join → ticket screen updates while a second client calls the ticket.
+Automated: the eight widget tests.
+
+---
+
+## PHASE 6 — Staff app ☐
+
+**Objective.** A staff member runs a counter end to end.
+
+**Create.** `providers/staff_providers.dart`, `features/staff/*`, `services/staff_api.dart`,
+`GET /dashboard/staff`, `GET /staff/:id/statistics`, `tests/staff.test.ts`.
+
+**Database.** Uses `staff_assignments`, `service_counters`.
+
+**API.** §53 staff endpoints wired to the UI, plus the staff dashboard and statistics endpoints.
+
+**Test.** Rule 4 (a staff member cannot call another service's ticket → 403) · Rule 5 (a busy counter
+cannot be handed a second ticket → 409) · the full demonstration scenario of §74 steps 7–13.
+
+---
+
+## PHASE 7 — Admin ☐
+
+**Objective.** Services, counters, staff, users, queue monitoring and announcements.
+
+**Create.** repositories/services/controllers for `staff`, `user`, `announcement`, `counter` admin paths;
+`GET /dashboard/admin`; `providers/admin_providers.dart`; `features/admin/*` (12 screens);
+`widgets/app_data_table.dart`, `widgets/chart_card.dart`.
+
+**Database.** Uses `announcements`, `system_settings`.
+
+**API.** §54 Counters · §55 Staff · §9 Users · §11 Announcements · §12 Dashboards.
+
+**Test.** Search and filter correctness (§40) · role matrix enforced on every admin route · queue monitor
+matches the database after a scripted sequence of staff actions.
+
+---
+
+## PHASE 8 — Reporting ☐
+
+**Objective.** Four SQL-aggregate reports plus the dashboard charts.
+
+**Create.** `src/repositories/report.repository.ts`, `src/services/report.service.ts`,
+`src/controllers/report.controller.ts`, `src/routes/report.routes.ts`,
+`features/admin/reports/*`, `tests/reports.test.ts`.
+
+**API.** `GET /reports/daily|services|staff|queues`.
+
+**Flutter.** Reports tabs with date-range picker, charts, CSV export.
+
+**Test.** Seed a known day, assert each aggregate equals a hand-computed value; assert charts render from
+API data with no literals in the widget tree.
+
+---
+
+## PHASE 9 — Testing and hardening ☐
+
+**Objective.** Confidence and polish.
+
+**Work.** Raise backend coverage on `services/` to ≥ 80 % · negative-path tests for every 4xx `code` ·
+loading and empty states audited on every screen (§64, §65) · responsive check at 360 / 768 / 1280 dp ·
+rate limits · CORS · `helmet` · dependency audit.
+
+**Test.** `npm test` green · `flutter test` green · the §85 success-criteria walkthrough performed
+end-to-end against MySQL.
+
+---
+
+## PHASE 10 — Documentation ☐
+
+**Objective.** A marker can clone, run and understand the project without asking a question.
+
+**Create/finish.** `README.md` (all 14 sections of §76) · `docs/user-guide.md` (one walkthrough per role)
+· `docs/api.md` kept in sync · `docs/architecture.md` diagrams · screenshots in `docs/screenshots/` ·
+`docs/known-limitations.md`.
+
+**Test.** Follow the README from a clean clone on a fresh machine and confirm every command works as
+written.
+
+---
+
+## Optional extensions (only after Phase 10, §81)
+
+☐ QR code on the ticket screen (`qr_flutter`, encodes `ticketNumber|id`)
+☐ Public display board (already scaffolded as a static page in Phase 7)
+☐ Priority categories (`normal|priority|emergency`, admin-set only, changes the call-next `ORDER BY`)
+☐ Appointment + walk-in hybrid
+
+---
+
+## Tracking
+
+| Phase | Status | Verified by |
+| --- | --- | --- |
+| 0 Design | ☑ | documents reviewed |
+| 1 Setup | ☐ | health endpoint + build |
+| 2 Database | ☐ | migration + schema tests |
+| 3 Auth | ☐ | `tests/auth.test.ts` |
+| 4 Queue engine | ☐ | `tests/queue.engine.test.ts`, `tests/concurrency.test.ts` |
+| 5 Customer app | ☐ | widget tests + manual run |
+| 6 Staff app | ☐ | `tests/staff.test.ts` + §74 walkthrough |
+| 7 Admin | ☐ | role matrix tests |
+| 8 Reports | ☐ | `tests/reports.test.ts` |
+| 9 Hardening | ☐ | coverage + responsive audit |
+| 10 Docs | ☐ | clean-clone dry run |

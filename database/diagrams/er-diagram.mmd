@@ -1,0 +1,158 @@
+%% SmartQueue — Entity Relationship Diagram
+%% Render: https://mermaid.live  or  VS Code "Markdown Preview Mermaid Support"
+erDiagram
+    USERS ||--o{ QUEUE_TICKETS : "books"
+    USERS ||--o{ NOTIFICATIONS : "receives"
+    USERS ||--o{ QUEUE_EVENTS : "triggers"
+    USERS ||--o{ STAFF_ASSIGNMENTS : "holds"
+    USERS ||--o{ ANNOUNCEMENTS : "authors"
+    USERS |o--o| SERVICE_COUNTERS : "staffs"
+
+    SERVICES ||--o{ QUEUES : "has daily"
+    SERVICES ||--o{ SERVICE_COUNTERS : "has"
+    SERVICES ||--o{ SERVICE_HOURS : "opens on"
+    SERVICES ||--|| QUEUE_SETTINGS : "configured by"
+    SERVICES ||--o{ ANNOUNCEMENTS : "targeted by"
+    SERVICES ||--o{ STAFF_ASSIGNMENTS : "staffed by"
+    SERVICES ||--o{ QUEUE_TICKETS : "issues"
+
+    QUEUES ||--o{ QUEUE_TICKETS : "contains"
+    QUEUE_TICKETS ||--o{ QUEUE_EVENTS : "audited by"
+    QUEUE_TICKETS ||--o{ NOTIFICATIONS : "referenced by"
+    SERVICE_COUNTERS ||--o{ QUEUE_TICKETS : "serves at"
+    SERVICE_COUNTERS ||--o{ STAFF_ASSIGNMENTS : "used by"
+
+    USERS {
+        bigint id PK
+        varchar first_name
+        varchar last_name
+        varchar email UK
+        varchar phone UK
+        varchar password_hash
+        enum role "customer|staff|admin|super_admin"
+        enum status "active|inactive|suspended"
+        datetime created_at
+        datetime updated_at
+    }
+
+    SERVICES {
+        bigint id PK
+        varchar name
+        varchar code UK
+        text description
+        varchar category
+        int average_service_time
+        int daily_capacity
+        enum status "open|closed|inactive"
+        datetime created_at
+        datetime updated_at
+    }
+
+    SERVICE_COUNTERS {
+        bigint id PK
+        bigint service_id FK
+        int counter_number
+        varchar name
+        enum status "available|busy|offline"
+        bigint assigned_staff_id FK
+        datetime created_at
+        datetime updated_at
+    }
+
+    SERVICE_HOURS {
+        bigint id PK
+        bigint service_id FK
+        tinyint day_of_week
+        time opening_time
+        time closing_time
+        enum status "open|closed"
+    }
+
+    QUEUE_SETTINGS {
+        bigint id PK
+        bigint service_id FK,UK
+        int max_queue_size
+        boolean allow_cancellation
+        boolean allow_rejoin
+        int notification_threshold
+        int estimated_service_time
+        datetime created_at
+        datetime updated_at
+    }
+
+    QUEUES {
+        bigint id PK
+        bigint service_id FK
+        date queue_date
+        enum status "waiting|paused|closed"
+        int current_number
+        int last_issued_number
+        int total_served
+        datetime created_at
+        datetime updated_at
+    }
+
+    QUEUE_TICKETS {
+        bigint id PK
+        bigint queue_id FK
+        bigint service_id FK
+        bigint user_id FK
+        varchar ticket_number
+        int sequence_number
+        enum status "waiting|called|serving|completed|cancelled|skipped|no_show"
+        bigint counter_id FK
+        int estimated_wait_minutes
+        datetime joined_at
+        datetime called_at
+        datetime service_started_at
+        datetime completed_at
+        datetime cancelled_at
+        bigint active_service_id
+        datetime created_at
+        datetime updated_at
+    }
+
+    QUEUE_EVENTS {
+        bigint id PK
+        bigint ticket_id FK
+        bigint user_id FK
+        enum event_type "joined|called|recalled|service_started|completed|cancelled|skipped|no_show"
+        varchar description
+        datetime created_at
+    }
+
+    STAFF_ASSIGNMENTS {
+        bigint id PK
+        bigint staff_id FK
+        bigint service_id FK
+        bigint counter_id FK
+        datetime assigned_at
+        datetime unassigned_at
+        enum status "active|ended"
+        datetime created_at
+        datetime updated_at
+    }
+
+    NOTIFICATIONS {
+        bigint id PK
+        bigint user_id FK
+        bigint ticket_id FK
+        varchar title
+        varchar message
+        enum type "queue|system|announcement|service"
+        boolean is_read
+        datetime created_at
+    }
+
+    ANNOUNCEMENTS {
+        bigint id PK
+        varchar title
+        text content
+        bigint service_id FK
+        bigint created_by FK
+        datetime published_at
+        datetime expires_at
+        enum status "draft|published|archived"
+        datetime created_at
+        datetime updated_at
+    }
