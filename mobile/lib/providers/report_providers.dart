@@ -234,7 +234,12 @@ void refreshReport(WidgetRef ref, ReportKind kind) {
 ///
 /// The client never builds the CSV itself: the file a marker opens has to
 /// be the same bytes the API produced, or the export proves nothing.
-class ReportExportController extends AutoDisposeAsyncNotifier<String?> {
+///
+/// Not auto-disposed, like every other write controller in the app: the
+/// only reference to it is `ref.read(...notifier)` from a button, which
+/// leaves no listener behind, and an auto-disposed notifier would be torn
+/// down while the download was still in flight.
+class ReportExportController extends AsyncNotifier<String?> {
   @override
   String? build() => null;
 
@@ -276,6 +281,5 @@ class ReportExportController extends AutoDisposeAsyncNotifier<String?> {
   }
 }
 
-final AutoDisposeAsyncNotifierProvider<ReportExportController, String?> reportExportProvider =
-    AsyncNotifierProvider.autoDispose<ReportExportController, String?>(
-        ReportExportController.new);
+final AsyncNotifierProvider<ReportExportController, String?> reportExportProvider =
+    AsyncNotifierProvider<ReportExportController, String?>(ReportExportController.new);
