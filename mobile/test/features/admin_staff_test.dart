@@ -87,7 +87,7 @@ void main() {
   testWidgets('surfaces a busy counter rather than swallowing the conflict',
       (WidgetTester tester) async {
     harness.admin.actionFailure =
-        const ConflictFailure('Finance Counter 2 is still handling ticket FIN-012.');
+        const ConflictFailure(message: 'Finance Counter 2 is still handling ticket FIN-012.');
 
     await tester.pumpScreen(harness, const ManageStaffScreen());
     await tester.pumpAndSettle();

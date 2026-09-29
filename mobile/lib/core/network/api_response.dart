@@ -15,7 +15,7 @@ class ApiResponse<T> {
   final PageMeta? meta;
 
   /// [parse] receives the raw `data` member and produces the typed value.
-  static ApiResponse<T> fromJson<T>(
+  factory ApiResponse.fromJson(
     Map<String, dynamic> json,
     T Function(dynamic data) parse,
   ) {

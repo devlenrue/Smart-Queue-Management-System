@@ -60,7 +60,7 @@ class NowServingCard extends StatelessWidget {
               ),
               CircleAvatar(
                 radius: 24,
-                backgroundColor: accent.withOpacity(0.12),
+                backgroundColor: accent.withValues(alpha: 0.12),
                 child: Text(
                   _initialsOf(customerName),
                   style: theme.textTheme.titleMedium?.copyWith(color: accent),

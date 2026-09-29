@@ -111,7 +111,7 @@ void main() {
 
   testWidgets('shows the failure rather than an empty board when the first read fails',
       (WidgetTester tester) async {
-    harness.admin.dashboardFailure = const NetworkFailure('No connection');
+    harness.admin.dashboardFailure = const NetworkFailure(message: 'No connection');
 
     await tester.pumpScreen(harness, const AdminDashboardScreen());
     await tester.pump();

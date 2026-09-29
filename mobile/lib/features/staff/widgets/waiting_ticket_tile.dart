@@ -48,7 +48,7 @@ class WaitingTicketTile extends StatelessWidget {
               height: 34,
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: theme.colorScheme.primary.withOpacity(0.10),
+                color: theme.colorScheme.primary.withValues(alpha: 0.10),
                 shape: BoxShape.circle,
               ),
               child: Text(

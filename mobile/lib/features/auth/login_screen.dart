@@ -174,7 +174,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       '${AppConstants.appName} · connected to ${AppConstants.apiBaseUrl}',
                       textAlign: TextAlign.center,
                       style: theme.textTheme.labelSmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant.withOpacity(0.7),
+                        color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
                       ),
                     ),
                   ],

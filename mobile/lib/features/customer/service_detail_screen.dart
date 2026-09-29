@@ -104,7 +104,7 @@ class _Header extends StatelessWidget {
           width: 64,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: theme.colorScheme.primary.withOpacity(0.10),
+            color: theme.colorScheme.primary.withValues(alpha: 0.10),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Text(

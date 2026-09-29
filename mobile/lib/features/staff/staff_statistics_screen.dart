@@ -183,7 +183,7 @@ class _ServedChart extends StatelessWidget {
                             height: peak == 0 ? 4 : 4 + (110 * day.served / peak),
                             decoration: BoxDecoration(
                               color: theme.colorScheme.primary
-                                  .withOpacity(day.served == peak ? 0.95 : 0.55),
+                                  .withValues(alpha: day.served == peak ? 0.95 : 0.55),
                               borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
                             ),
                           ),

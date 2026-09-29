@@ -16,9 +16,9 @@ class FormErrorBanner extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: theme.colorScheme.errorContainer.withOpacity(0.5),
+        color: theme.colorScheme.errorContainer.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: theme.colorScheme.error.withOpacity(0.35)),
+        border: Border.all(color: theme.colorScheme.error.withValues(alpha: 0.35)),
       ),
       child: Row(
         children: <Widget>[

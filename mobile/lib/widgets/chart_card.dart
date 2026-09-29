@@ -94,8 +94,8 @@ class BarChartCard extends StatelessWidget {
                                     ? 4
                                     : 4 + ((height - 50) * datum.value / peak),
                                 decoration: BoxDecoration(
-                                  color: theme.colorScheme.primary.withOpacity(
-                                    datum.value == peak ? 0.95 : 0.55,
+                                  color: theme.colorScheme.primary.withValues(
+                                    alpha: datum.value == peak ? 0.95 : 0.55,
                                   ),
                                   borderRadius:
                                       const BorderRadius.vertical(top: Radius.circular(6)),

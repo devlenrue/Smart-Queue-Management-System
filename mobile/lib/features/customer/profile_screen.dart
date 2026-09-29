@@ -51,7 +51,7 @@ class ProfileScreen extends ConsumerWidget {
             children: <Widget>[
               CircleAvatar(
                 radius: 32,
-                backgroundColor: theme.colorScheme.primary.withOpacity(0.12),
+                backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.12),
                 child: Text(
                   Formatters.initials(user.firstName, user.lastName),
                   style: theme.textTheme.titleLarge?.copyWith(color: theme.colorScheme.primary),
@@ -74,7 +74,7 @@ class ProfileScreen extends ConsumerWidget {
                     Chip(
                       label: Text(user.role.label),
                       visualDensity: VisualDensity.compact,
-                      backgroundColor: theme.colorScheme.primary.withOpacity(0.10),
+                      backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.10),
                       labelStyle: theme.textTheme.labelSmall
                           ?.copyWith(color: theme.colorScheme.primary),
                     ),

@@ -74,7 +74,7 @@ class AppTheme {
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       ),
       dividerTheme: DividerThemeData(
-        color: scheme.outlineVariant.withOpacity(0.6),
+        color: scheme.outlineVariant.withValues(alpha: 0.6),
         space: 1,
         thickness: 1,
       ),

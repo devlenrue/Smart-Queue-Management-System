@@ -4,7 +4,9 @@ publish_to: "none"
 version: 1.0.0+1
 
 environment:
-  sdk: ">=3.4.0 <4.0.0"
+  # 3.6 is the floor for Color.withValues, which replaced the deprecated
+  # Color.withOpacity used throughout the theme and widget library.
+  sdk: ">=3.6.0 <4.0.0"
 
 dependencies:
   flutter:

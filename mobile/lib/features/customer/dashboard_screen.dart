@@ -220,9 +220,9 @@ class _CallToCounter extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: palette.called.withOpacity(0.12),
+        color: palette.called.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: palette.called.withOpacity(0.4)),
+        border: Border.all(color: palette.called.withValues(alpha: 0.4)),
       ),
       child: Row(
         children: <Widget>[

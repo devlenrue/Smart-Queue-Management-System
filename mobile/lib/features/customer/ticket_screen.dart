@@ -246,13 +246,13 @@ class _PositionPanel extends StatelessWidget {
                 Icon(
                   Icons.sync_rounded,
                   size: 13,
-                  color: theme.colorScheme.onSurfaceVariant.withOpacity(0.8),
+                  color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.8),
                 ),
                 const SizedBox(width: 6),
                 Text(
                   'Updates automatically',
                   style: theme.textTheme.labelSmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant.withOpacity(0.8),
+                    color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.8),
                   ),
                 ),
               ],
@@ -278,7 +278,7 @@ class _CalledBanner extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        color: palette.called.withOpacity(0.12),
+        color: palette.called.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: palette.called, width: 1.5),
       ),
@@ -327,9 +327,9 @@ class _ServingBanner extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: palette.serving.withOpacity(0.10),
+        color: palette.serving.withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: palette.serving.withOpacity(0.5)),
+        border: Border.all(color: palette.serving.withValues(alpha: 0.5)),
       ),
       child: Row(
         children: <Widget>[
@@ -380,9 +380,9 @@ class _ClosedPanel extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
+        color: color.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withOpacity(0.35)),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
       ),
       child: Column(
         children: <Widget>[

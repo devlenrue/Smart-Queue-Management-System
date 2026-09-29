@@ -19,6 +19,9 @@ class ErrorMapper {
           code: 'TIMEOUT',
         );
       case DioExceptionType.receiveTimeout:
+      // Dio 5.11 split out the time spent decoding a large body. From the
+      // user's side it is the same event as a receive timeout.
+      case DioExceptionType.transformTimeout:
         return const NetworkFailure(
           message: 'The server is taking too long to reply. Please try again.',
           code: 'TIMEOUT',

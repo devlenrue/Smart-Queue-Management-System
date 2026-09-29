@@ -32,7 +32,7 @@ class UserDetailScreen extends ConsumerWidget {
 
     return AdminPage(
       title: async.valueOrNull?.fullName ?? 'User',
-      subtitle: async.valueOrNull == null ? null : async.valueOrNull!.user.email,
+      subtitle: async.valueOrNull?.user.email,
       onRefresh: () async => ref.invalidate(adminUserProvider(userId)),
       body: async.when(
         loading: () => const SkeletonList(count: 3),

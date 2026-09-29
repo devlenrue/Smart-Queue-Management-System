@@ -92,7 +92,7 @@ class AppSecondaryButton extends StatelessWidget {
       onPressed: isLoading ? null : onPressed,
       style: OutlinedButton.styleFrom(
         foregroundColor: foreground,
-        side: BorderSide(color: foreground.withOpacity(0.5)),
+        side: BorderSide(color: foreground.withValues(alpha: 0.5)),
       ),
       child: child,
     );

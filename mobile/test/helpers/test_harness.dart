@@ -166,7 +166,10 @@ class FakeTicketRepository extends TicketRepository {
 
   List<Ticket> tickets = <Ticket>[];
   List<Ticket> activeTickets = <Ticket>[];
-  List<TicketEvent> events = <TicketEvent>[];
+
+  /// Not named `events`: that is the name of the method it feeds, and a
+  /// field cannot share a name with an inherited method.
+  List<TicketEvent> eventList = <TicketEvent>[];
 
   /// Scripted position readings, returned one per poll, so a test can watch
   /// the queue move. Once the script runs out the ticket is reported
@@ -226,7 +229,7 @@ class FakeTicketRepository extends TicketRepository {
   }
 
   @override
-  Future<List<TicketEvent>> events(int id) async => events;
+  Future<List<TicketEvent>> events(int id) async => eventList;
 
   @override
   Future<Ticket> cancel(int id, {String? reason}) async {

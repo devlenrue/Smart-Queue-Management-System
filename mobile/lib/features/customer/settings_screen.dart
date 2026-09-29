@@ -80,10 +80,10 @@ class SettingsScreen extends ConsumerWidget {
           const SizedBox(height: 24),
           Text('Connection', style: theme.textTheme.titleSmall),
           const SizedBox(height: 8),
-          AppCard(
+          const AppCard(
             child: ListTile(
-              leading: const Icon(Icons.cloud_outlined),
-              title: const Text('API server'),
+              leading: Icon(Icons.cloud_outlined),
+              title: Text('API server'),
               subtitle: Text(AppConstants.apiBaseUrl),
               isThreeLine: false,
             ),

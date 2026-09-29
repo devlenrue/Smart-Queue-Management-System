@@ -26,7 +26,7 @@ class NotificationTile extends StatelessWidget {
     return Material(
       color: notification.isRead
           ? Colors.transparent
-          : theme.colorScheme.primary.withOpacity(0.05),
+          : theme.colorScheme.primary.withValues(alpha: 0.05),
       child: InkWell(
         onTap: onTap,
         child: Padding(
@@ -37,7 +37,7 @@ class NotificationTile extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(9),
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.12),
+                  color: color.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(icon, size: 19, color: color),
@@ -64,7 +64,7 @@ class NotificationTile extends StatelessWidget {
                     Text(
                       Formatters.relativeFromIso(notification.createdAt),
                       style: theme.textTheme.labelSmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant.withOpacity(0.8),
+                        color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.8),
                       ),
                     ),
                   ],

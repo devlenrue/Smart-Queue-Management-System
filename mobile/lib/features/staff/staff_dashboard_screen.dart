@@ -133,7 +133,7 @@ class _NoCounterNotice extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: theme.colorScheme.tertiaryContainer.withOpacity(0.5),
+        color: theme.colorScheme.tertiaryContainer.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(

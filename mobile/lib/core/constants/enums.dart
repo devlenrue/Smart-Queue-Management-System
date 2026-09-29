@@ -2,6 +2,7 @@
 ///
 /// Each one parses defensively: an unrecognised string from a newer server
 /// falls back to a sane value rather than throwing inside a list builder.
+library;
 
 enum UserRole {
   customer,

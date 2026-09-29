@@ -51,7 +51,7 @@ class ErrorState extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: theme.colorScheme.error.withOpacity(0.08),
+                color: theme.colorScheme.error.withValues(alpha: 0.08),
                 shape: BoxShape.circle,
               ),
               child: Icon(icon, size: 40, color: theme.colorScheme.error),
@@ -69,7 +69,7 @@ class ErrorState extends StatelessWidget {
               Text(
                 failure.code!,
                 style: theme.textTheme.labelSmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant.withOpacity(0.7),
+                  color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
                 ),
               ),
             ],

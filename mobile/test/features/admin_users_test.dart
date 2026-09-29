@@ -82,7 +82,8 @@ void main() {
 
   testWidgets('reports a rejected suspension instead of pretending it worked',
       (WidgetTester tester) async {
-    harness.admin.actionFailure = const ConflictFailure('That account cannot be suspended.');
+    harness.admin.actionFailure =
+        const ConflictFailure(message: 'That account cannot be suspended.');
 
     await tester.pumpScreen(harness, const ManageUsersScreen());
     await tester.pumpAndSettle();
