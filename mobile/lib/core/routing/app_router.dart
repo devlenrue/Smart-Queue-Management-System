@@ -19,7 +19,14 @@ import '../../features/customer/settings_screen.dart';
 import '../../features/customer/ticket_screen.dart';
 import '../../features/misc/about_screen.dart';
 import '../../features/misc/not_found_screen.dart';
+import '../../features/staff/current_queue_screen.dart';
+import '../../features/staff/staff_dashboard_screen.dart';
+import '../../features/staff/staff_history_screen.dart';
+import '../../features/staff/staff_profile_screen.dart';
+import '../../features/staff/staff_shell.dart';
+import '../../features/staff/staff_statistics_screen.dart';
 import '../../providers/auth_providers.dart';
+import '../constants/enums.dart';
 import 'route_paths.dart';
 
 final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'root');
@@ -59,8 +66,23 @@ final Provider<GoRouter> goRouterProvider = Provider<GoRouter>((Ref ref) {
 
       if (!signedIn) return isPublic ? null : RoutePaths.login;
 
+      // Each role has one home, and the app only ever sends people there.
+      final UserRole role = auth.valueOrNull?.role ?? UserRole.customer;
+      final String home = homeFor(role);
+
       // Signed in but sitting on the splash or a login form — move along.
-      if (isPublic) return RoutePaths.home;
+      if (isPublic) return home;
+
+      // Settings and About belong to everyone.
+      if (RoutePaths.sharedRoutes.contains(location)) return null;
+
+      // One prefix check each way keeps the two consoles apart: a customer
+      // cannot open the staff console, and a clerk is not dropped into the
+      // customer app where they have no tickets of their own.
+      final bool wantsStaff = RoutePaths.isStaffRoute(location);
+      final bool maySeeStaff = role != UserRole.customer;
+      if (wantsStaff && !maySeeStaff) return RoutePaths.home;
+      if (!wantsStaff && maySeeStaff) return home;
 
       return null;
     },
@@ -160,6 +182,67 @@ final Provider<GoRouter> goRouterProvider = Provider<GoRouter>((Ref ref) {
         ],
       ),
 
+      // The staff console. Five tabs, same indexed-stack arrangement as the
+      // customer shell so each tab keeps its own history.
+      StatefulShellRoute.indexedStack(
+        builder: (BuildContext context, GoRouterState state, StatefulNavigationShell shell) {
+          return StaffShell(shell: shell);
+        },
+        branches: <StatefulShellBranch>[
+          StatefulShellBranch(
+            routes: <RouteBase>[
+              GoRoute(
+                path: RoutePaths.staffHome,
+                builder: (BuildContext context, GoRouterState state) =>
+                    const StaffDashboardScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: <RouteBase>[
+              GoRoute(
+                path: RoutePaths.staffQueue,
+                builder: (BuildContext context, GoRouterState state) => const CurrentQueueScreen(),
+                routes: <RouteBase>[
+                  GoRoute(
+                    path: 'ticket/:id',
+                    parentNavigatorKey: _rootNavigatorKey,
+                    builder: (BuildContext context, GoRouterState state) {
+                      return StaffTicketScreen(ticketId: _idOf(state));
+                    },
+                  ),
+                ],
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: <RouteBase>[
+              GoRoute(
+                path: RoutePaths.staffHistory,
+                builder: (BuildContext context, GoRouterState state) => const StaffHistoryScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: <RouteBase>[
+              GoRoute(
+                path: RoutePaths.staffStats,
+                builder: (BuildContext context, GoRouterState state) =>
+                    const StaffStatisticsScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: <RouteBase>[
+              GoRoute(
+                path: RoutePaths.staffProfile,
+                builder: (BuildContext context, GoRouterState state) => const StaffProfileScreen(),
+              ),
+            ],
+          ),
+        ],
+      ),
+
       GoRoute(
         path: RoutePaths.announcements,
         builder: (BuildContext context, GoRouterState state) => const AnnouncementsScreen(),
@@ -185,6 +268,14 @@ final Provider<GoRouter> goRouterProvider = Provider<GoRouter>((Ref ref) {
   ref.onDispose(router.dispose);
   return router;
 });
+
+/// Where each role lands after signing in.
+///
+/// Administrators go to the staff console for now: the server exempts them
+/// from the assignment check, so they can supervise any desk. Their own
+/// console arrives with Phase 7.
+String homeFor(UserRole role) =>
+    role == UserRole.customer ? RoutePaths.home : RoutePaths.staffHome;
 
 /// A malformed `:id` should land on the not-found screen, not crash.
 int _idOf(GoRouterState state) => int.tryParse(state.pathParameters['id'] ?? '') ?? -1;

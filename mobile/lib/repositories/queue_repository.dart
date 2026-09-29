@@ -11,5 +11,7 @@ class QueueRepository {
 
   Future<QueueStatusView> forService(int serviceId) => _api.forService(serviceId);
 
+  Future<QueueMonitor> monitor(int queueId) => _api.monitor(queueId);
+
   Future<JoinResult> join(int serviceId) => _api.join(serviceId);
 }

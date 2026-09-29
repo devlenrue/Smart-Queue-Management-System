@@ -24,6 +24,16 @@ class QueueApi {
     return QueueStatusView.fromJson(response.data);
   }
 
+  /// The staff board. Gated to staff and above on the server, so the
+  /// customer app never reaches for it.
+  Future<QueueMonitor> monitor(int queueId) async {
+    final response = await _client.get<Map<String, dynamic>>(
+      ApiEndpoints.queueMonitor(queueId),
+      parse: Parse.object,
+    );
+    return QueueMonitor.fromJson(response.data);
+  }
+
   /// Rule 1 lives on the server: a second active ticket for the same service
   /// comes back as 409 DUPLICATE_ACTIVE_TICKET, which the error mapper turns
   /// into a [ConflictFailure] for the UI to explain.

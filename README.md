@@ -17,7 +17,7 @@
 | 3 — Backend foundation (auth) | ☑ complete — bcrypt + JWT, 4 roles, validation, rate limiting, 30 auth tests |
 | 4 — Queue engine ★ | ☑ complete — join, ticket numbering, position, calling, serving, concurrency, 108 tests |
 | 5 — Customer app | ◐ written, awaiting a device run — Flutter client: auth + 14 customer screens, 9 test suites, plus the `/notifications` and `/announcements` endpoints it needs |
-| 6 — Staff app | ☐ |
+| 6 — Staff app | ◐ written, awaiting a device run — staff dashboard, statistics and counter endpoints (34 tests) + a 6-screen Flutter console |
 | 7 — Admin | ☐ |
 | 8 — Reporting | ☐ |
 | 9 — Testing | ☐ |
@@ -125,7 +125,7 @@ database server.
 ```bash
 cd server
 npm run typecheck     # tsc --noEmit
-npm test              # 216 tests
+npm test              # 250 tests
 ```
 
 | Suite | Tests | Covers |
@@ -137,6 +137,7 @@ npm test              # 216 tests
 | `tests/transitions.test.ts` | 59 | the ticket state machine, every legal and illegal edge, who may drive it |
 | `tests/concurrency.test.ts` | 14 | §60 — simultaneous joins, simultaneous calls, database-level guards |
 | `tests/notifications.test.ts` | 20 | the inbox: ownership isolation, filters, paging, idempotent mark-read, announcement visibility |
+| `tests/staff.test.ts` | 34 | the staff console: Rule 4 assignment scoping, Rule 5 counter conflicts, the on/off-duty switch, the dashboard, statistics attribution, handled-ticket history, §74 steps 7–13 |
 
 ---
 

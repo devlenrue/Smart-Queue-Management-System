@@ -8,7 +8,7 @@
 
 ```mermaid
 flowchart TD
-    Splash["/splash<br/>bootstrap: read token, GET /auth/me"]
+    Splash["/ (splash)<br/>bootstrap: read token, GET /auth/me"]
 
     Splash -->|no token / 401| Login
     Splash -->|role = customer| CDash
@@ -23,29 +23,30 @@ flowchart TD
     Login <--> Register
     Login --> Forgot
 
-    subgraph Customer["Customer shell · bottom navigation"]
-        CDash["/c/dashboard"]
-        CServices["/c/services"]
-        CTicket["/c/ticket/:id"]
-        CHistory["/c/history"]
-        CNotifs["/c/notifications"]
+    subgraph Customer["Customer shell · bottom navigation (Phase 5, built)"]
+        CDash["/home"]
+        CServices["/services"]
+        CTicket["/tickets/:id"]
+        CHistory["/tickets"]
+        CNotifs["/notifications"]
     end
-    CDash --> CServices --> CDetail["/c/services/:id"] --> CJoin["join sheet"] --> CTicket
+    CDash --> CServices --> CDetail["/services/:id"] --> CJoin["join sheet"] --> CTicket
     CDash --> CTicket
-    CDash --> CAnnounce["/c/announcements"]
+    CDash --> CAnnounce["/announcements"]
     CHistory --> CTicket
     CNotifs --> CTicket
-    CDash --> CProfile["/c/profile"] --> CSettings["/c/settings"]
+    CTicket --> CTrack["/tickets/:id/queue"]
+    CDash --> CProfile["/profile"] --> CSettings["/settings"]
 
-    subgraph Staff["Staff shell · navigation rail"]
-        SDash["/s/dashboard"]
-        SQueue["/s/queue"]
-        SStats["/s/statistics"]
+    subgraph Staff["Staff shell · navigation rail (Phase 6, built)"]
+        SDash["/staff/console"]
+        SQueue["/staff/queue"]
+        SHistory["/staff/history"]
+        SStats["/staff/statistics"]
+        SProfile["/staff/profile"]
     end
-    SDash --> STicket["/s/ticket/:id"]
+    SDash --> STicket["/staff/queue/ticket/:id"]
     SQueue --> STicket
-    SDash --> SHistory["/s/history"]
-    SDash --> SProfile["/s/profile"]
 
     subgraph Admin["Admin shell · navigation drawer"]
         ADash["/a/dashboard"]
@@ -68,12 +69,23 @@ flowchart TD
 A single `GoRouter.redirect` reads `authStateProvider`:
 
 ```text
-unauthenticated + route not in {/splash,/login,/register,/forgot-password} → /login
-authenticated   + route in auth shell                                     → home for role
-authenticated   + route outside the role's namespace                      → /unauthorized
+loading / unknown                                                         → /
+unauthenticated + route not in {/, /login, /register, /forgot-password}   → /login
+authenticated   + route in the auth shell                                 → homeFor(role)
+authenticated   + route in {/settings, /about}                            → allowed for everyone
+customer        + route under /staff                                      → /home
+staff|admin     + route outside /staff and not shared                     → /staff/console
 ```
 
-Role → home: `customer → /c/dashboard`, `staff → /s/dashboard`, `admin|super_admin → /a/dashboard`.
+`homeFor(role)`: `customer → /home`, `staff|admin|super_admin → /staff/console`.
+
+Administrators land on the staff console until their own shell arrives in Phase 7; the server
+exempts them from the assignment check, so they can supervise any desk from it.
+
+**As built.** The paths above are the ones in `lib/core/routing/route_paths.dart`. They are flat
+(`/home`, `/services`, `/staff/console`) rather than the `/c/…` `/s/…` `/a/…` namespaces originally
+sketched: one prefix, `/staff`, is all the guard needs to keep the two consoles apart, and a flat
+customer namespace keeps the deep links a marker types shorter.
 
 ---
 
@@ -104,16 +116,20 @@ Role → home: `customer → /c/dashboard`, `staff → /s/dashboard`, `admin|sup
 | Profile | name, email, phone, edit, change password |
 | Settings | theme mode, polling interval, notification threshold preference, logout |
 
-### 2.3 Staff (6)
+### 2.3 Staff (6) — built in Phase 6
 
-| Screen | Contents |
-| --- | --- |
-| Dashboard | assigned service + counter header, current ticket card, up-next list, 4 stat tiles, big `Call Next` |
-| Current queue | full waiting list with waited-time, per-row `Call`, pull-to-refresh, auto-poll |
-| Ticket details | §45 layout: customer, joined-at, waited time, counter, and the action row |
-| Queue history | tickets this staff member handled today/this week |
-| Statistics | served / skipped / no-show counts, average service and wait, bar chart by day |
-| Profile | read-only assignment info + logout |
+| Screen | Route | Contents |
+| --- | --- | --- |
+| Dashboard | `/staff/console` | counter on/off-duty switch, 4 stat tiles, now-serving card with its action row, big `Call Next` (with the reason when it is unavailable), up-next preview |
+| Current queue | `/staff/queue` | whole waiting list with waited-time and a long-wait marker, per-row `Call`, counters-free header, pull-to-refresh |
+| Ticket details | `/staff/queue/ticket/:id` | customer, phone, joined-at, waited time, counter, and the action row |
+| Queue history | `/staff/history` | tickets this clerk handled, status filter, infinite scroll |
+| Statistics | `/staff/statistics` | served / skipped / no-show, completion rate, served-per-day bars, averages, range chips |
+| Profile | `/staff/profile` | posting (service, counter, since), the counter roster, settings, sign out |
+
+Which buttons a ticket shows is decided by `StaffRepository.actionsFor(status)` — the client half of
+the `docs/queue-engine.md` §1.1 transition table. The server stays the authority; this only keeps a
+clerk from being offered an action that could only ever answer 409.
 
 ### 2.4 Admin (12)
 
@@ -199,10 +215,14 @@ Customer
   notificationsProvider          AsyncNotifier<Paged<AppNotification>>
   unreadCountProvider            StreamNotifier<int>              ← polls every 30 s
 
-Staff
-  staffDashboardProvider         StreamNotifier<StaffDashboard>   ← polls every 5 s
-  staffQueueProvider             AsyncNotifier<List<QueueTicket>>
-  ticketActionProvider           AsyncNotifier<void>              ← call/start/complete/skip/recall
+Staff  (as built — lib/providers/staff_providers.dart)
+  staffDashboardProvider         StreamNotifier<StaffDashboard>   ← polls at the queue interval
+  staffQueueProvider             AsyncNotifier<QueueMonitor?>     ← re-reads on each dashboard tick
+  staffActionProvider            AsyncNotifier<TicketActionResult?>  call/recall/start/complete/
+                                                                  skip/no-show/counter status
+  staffHistoryProvider           AsyncNotifier<PagedState<Ticket>>
+  staffStatisticsProvider        FutureProvider<StaffStatistics>
+  serviceCountersProvider        FutureProvider<List<ServiceCounter>>
 
 Admin
   adminDashboardProvider         StreamNotifier<AdminDashboard>   ← polls every 15 s
@@ -321,7 +341,9 @@ mobile/lib/
 ├── features/
 │   ├── auth/       splash_screen.dart login_screen.dart register_screen.dart …
 │   ├── customer/   dashboard/ services/ queue/ history/ notifications/ profile/
-│   ├── staff/      dashboard/ queue/ statistics/
+│   ├── staff/      staff_shell.dart staff_dashboard_screen.dart current_queue_screen.dart
+│   │                staff_history_screen.dart staff_statistics_screen.dart
+│   │                staff_profile_screen.dart  widgets/
 │   └── admin/      dashboard/ services/ counters/ staff/ users/ queues/ reports/ announcements/
 └── widgets/        app_button.dart … chart_card.dart
 ```

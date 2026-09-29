@@ -12,11 +12,13 @@ import '../repositories/auth_repository.dart';
 import '../repositories/notification_repository.dart';
 import '../repositories/queue_repository.dart';
 import '../repositories/service_repository.dart';
+import '../repositories/staff_repository.dart';
 import '../repositories/ticket_repository.dart';
 import '../services/auth_api.dart';
 import '../services/notification_api.dart';
 import '../services/queue_api.dart';
 import '../services/service_api.dart';
+import '../services/staff_api.dart';
 import '../services/ticket_api.dart';
 
 /// Wiring only: storage → Dio → api → repository. Every one of these is
@@ -100,6 +102,9 @@ final Provider<TicketApi> ticketApiProvider =
 final Provider<NotificationApi> notificationApiProvider =
     Provider<NotificationApi>((Ref ref) => NotificationApi(ref.watch(apiClientProvider)));
 
+final Provider<StaffApi> staffApiProvider =
+    Provider<StaffApi>((Ref ref) => StaffApi(ref.watch(apiClientProvider)));
+
 // ── repositories ──────────────────────────────────────────────────────────
 
 final Provider<AuthRepository> authRepositoryProvider = Provider<AuthRepository>((Ref ref) {
@@ -124,6 +129,10 @@ final Provider<TicketRepository> ticketRepositoryProvider = Provider<TicketRepos
 final Provider<NotificationRepository> notificationRepositoryProvider =
     Provider<NotificationRepository>((Ref ref) {
   return NotificationRepository(ref.watch(notificationApiProvider));
+});
+
+final Provider<StaffRepository> staffRepositoryProvider = Provider<StaffRepository>((Ref ref) {
+  return StaffRepository(ref.watch(staffApiProvider));
 });
 
 // ── preferences ───────────────────────────────────────────────────────────

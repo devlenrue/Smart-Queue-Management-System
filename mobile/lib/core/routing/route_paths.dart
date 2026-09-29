@@ -24,10 +24,19 @@ class RoutePaths {
   static const String settings = '/settings';
   static const String about = '/about';
 
+  // staff console (§20). A separate namespace so the guard can keep a
+  // customer out of it with one prefix check.
+  static const String staffHome = '/staff/console';
+  static const String staffQueue = '/staff/queue';
+  static const String staffHistory = '/staff/history';
+  static const String staffStats = '/staff/statistics';
+  static const String staffProfile = '/staff/profile';
+
   static String serviceDetailOf(int id) => '/services/$id';
   static String ticketDetailOf(int id) => '/tickets/$id';
   static String queueTrackingOf(int id) => '/tickets/$id/queue';
   static String announcementDetailOf(int id) => '/announcements/$id';
+  static String staffTicketOf(int id) => '/staff/queue/ticket/$id';
 
   /// Routes reachable without a session.
   static const Set<String> publicRoutes = <String>{
@@ -36,4 +45,12 @@ class RoutePaths {
     register,
     forgotPassword,
   };
+
+  /// Reachable by anyone signed in, whatever their role.
+  static const Set<String> sharedRoutes = <String>{settings, about};
+
+  /// The staff namespace. Everything under it needs `staff` or better.
+  static const String staffPrefix = '/staff';
+
+  static bool isStaffRoute(String location) => location.startsWith(staffPrefix);
 }

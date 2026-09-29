@@ -1,5 +1,7 @@
 import '../core/constants/enums.dart';
 import '../core/utils/json.dart';
+import 'counter.dart';
+import 'ticket.dart';
 
 /// The full queue snapshot from `GET /queues/:id/status`.
 class QueueStatusView {
@@ -74,4 +76,53 @@ class QueueStatusView {
       nowServing: Json.asStringOrNull(json['nowServing']),
     );
   }
+}
+
+/// `GET /queues/:id/monitor` — the staff and admin board.
+///
+/// One request gives the whole room: who is at each counter, who is waiting,
+/// and the day's tallies. The customer app never calls this; it is gated to
+/// staff and above.
+class QueueMonitor {
+  const QueueMonitor({
+    required this.serviceId,
+    required this.serviceName,
+    required this.serviceCode,
+    required this.queue,
+    required this.counters,
+    required this.serving,
+    required this.waiting,
+    this.nowServing,
+  });
+
+  final int serviceId;
+  final String serviceName;
+  final String serviceCode;
+  final QueueStatusView queue;
+  final List<ServiceCounter> counters;
+
+  /// Tickets currently `called` or `serving`, one per busy counter.
+  final List<Ticket> serving;
+
+  /// Everyone still waiting, in queue order.
+  final List<Ticket> waiting;
+
+  final String? nowServing;
+
+  factory QueueMonitor.fromJson(Map<String, dynamic> json) {
+    final Map<String, dynamic> service = Json.asMap(json['service']) ?? const <String, dynamic>{};
+    return QueueMonitor(
+      serviceId: Json.asInt(service['id']),
+      serviceName: Json.asString(service['name']),
+      serviceCode: Json.asString(service['code']),
+      queue: QueueStatusView.fromJson(Json.asMap(json['queue']) ?? const <String, dynamic>{}),
+      counters: Json.mapList(json['counters'], ServiceCounter.fromJson),
+      serving: Json.mapList(json['serving'], Ticket.fromJson),
+      waiting: Json.mapList(json['waiting'], Ticket.fromJson),
+      nowServing: Json.asStringOrNull(json['nowServing']),
+    );
+  }
+
+  int get availableCounters =>
+      counters.where((ServiceCounter c) => c.status == CounterStatus.available).length;
 }

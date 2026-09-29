@@ -262,7 +262,16 @@ final AutoDisposeAsyncNotifierProvider<TicketHistoryNotifier, PagedState<Ticket>
 /// Join and cancel. Separate from the read providers because an action has
 /// a lifecycle of its own: idle → in flight → done, and the button needs to
 /// know which one it is in.
-class QueueActionController extends AutoDisposeAsyncNotifier<Ticket?> {
+///
+/// Kept alive rather than auto-disposed on purpose.
+///
+/// Every caller reaches this through `ref.read(...notifier)` from a button
+/// handler and keeps its own busy flag, so nothing ever *watches* it. An
+/// auto-dispose provider with no watchers is torn down on the next event-loop
+/// turn — that is, while the request is still in flight — and the `ref` calls
+/// it makes afterwards would throw. It holds one nullable result, so keeping
+/// it alive costs nothing.
+class QueueActionController extends AsyncNotifier<Ticket?> {
   @override
   Future<Ticket?> build() async => null;
 
@@ -307,8 +316,8 @@ class QueueActionController extends AutoDisposeAsyncNotifier<Ticket?> {
   }
 }
 
-final AutoDisposeAsyncNotifierProvider<QueueActionController, Ticket?> queueActionProvider =
-    AsyncNotifierProvider.autoDispose<QueueActionController, Ticket?>(QueueActionController.new);
+final AsyncNotifierProvider<QueueActionController, Ticket?> queueActionProvider =
+    AsyncNotifierProvider<QueueActionController, Ticket?>(QueueActionController.new);
 
 // ── notifications ─────────────────────────────────────────────────────────
 

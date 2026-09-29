@@ -190,19 +190,65 @@ against the live API.
 
 ---
 
-## PHASE 6 — Staff app ☐
+## PHASE 6 — Staff app ◐
 
 **Objective.** A staff member runs a counter end to end.
 
-**Create.** `providers/staff_providers.dart`, `features/staff/*`, `services/staff_api.dart`,
-`GET /dashboard/staff`, `GET /staff/:id/statistics`, `tests/staff.test.ts`.
+**Backend — done and verified.** The §53 transitions already existed from Phase 4; Phase 6 added the
+read model the console needs.
 
-**Database.** Uses `staff_assignments`, `service_counters`.
+* `repositories/statistics.repository.ts` — staff totals, averages, per-day rollup, handled-ticket
+  list, per-counter day tally. All aggregates, nothing cached.
+* `services/staff.service.ts` — assignment resolution, the dashboard assembly, statistics, handled
+  tickets, and the counter on/off-duty switch.
+* `serializers/staff.serializer.ts` · `validators/staff.validators.ts` ·
+  `controllers/staff.controller.ts` · `routes/staff.routes.ts`.
+* Mounted: `GET /dashboard/staff`, `GET /staff/:id/statistics`, `GET /staff/:id/tickets`,
+  `GET /counters`, `PATCH /counters/:id/status`.
 
-**API.** §53 staff endpoints wired to the UI, plus the staff dashboard and statistics endpoints.
+`GET /staff/:id/tickets` was **not** in the original plan. It turned out that `GET /tickets/my` is
+scoped to the caller's tickets *as a customer*, so nothing could answer "what did I handle today?" —
+the history screen needs a query that joins `queue_events.user_id`.
 
-**Test.** Rule 4 (a staff member cannot call another service's ticket → 403) · Rule 5 (a busy counter
-cannot be handed a second ticket → 409) · the full demonstration scenario of §74 steps 7–13.
+**Attribution.** Work counts towards the staff member who caused the event
+(`queue_events.user_id`), not towards whoever happens to own the counter now. Counters get
+reassigned; the audit trail does not move.
+
+**Flutter — written.** 15 new files under `mobile/lib` (90 total), 4 under `mobile/test` (14 total):
+
+* `models/staff_dashboard.dart`, `models/staff_statistics.dart`, and `QueueMonitor` added to
+  `models/queue.dart`.
+* `services/staff_api.dart` → `repositories/staff_repository.dart` → `providers/staff_providers.dart`.
+* `features/staff/` — shell (rail on wide screens), console, current queue + ticket detail, history,
+  statistics, profile, and four widgets (`now_serving_card`, `ticket_action_bar`,
+  `waiting_ticket_tile`, `counter_status_tile`).
+* The router guard is now role-aware: `homeFor(role)`, a customer on `/staff/*` is sent to `/home`,
+  and a clerk outside the staff namespace is sent to `/staff/console`. `/settings` and `/about` stay
+  shared.
+
+**Fixed along the way.** `queueActionProvider` and `staffActionProvider` are no longer `autoDispose`.
+Both are only ever reached through `ref.read(…notifier)` from a button handler, so nothing watches
+them — an auto-dispose provider with no watchers is torn down on the next event-loop turn, i.e. while
+the request is still in flight, and the `ref` calls it makes afterwards would have thrown.
+
+**Database.** None. Uses `staff_assignments`, `service_counters`, `queue_events`.
+
+**Test.** `tests/staff.test.ts` — **34 tests, suite now 250**. Access control (403 for a customer,
+401 anonymous, self-only statistics, `me` alias) · Rule 4 (403 `NOT_ASSIGNED_TO_SERVICE` on
+call-next, on a transition, on the counter list, and on a dashboard override) · Rule 5 (409
+`COUNTER_BUSY`, and the counter freeing on completion) · the counter switch (409 while serving, 403
+on someone else's, 409 `COUNTER_OFFLINE` when calling from an off-duty counter) · the dashboard
+(unassigned, service/counter naming, queue order, current ticket, per-clerk vs per-service counts,
+admin supervision) · statistics (zeroes, served/skipped/no-show split, attribution, per-day grouping,
+ranges, 422 on a bad date) · handled tickets (once each, exclusion, filter, pagination) · and the §74
+steps 7–13 walkthrough end to end.
+
+Four Flutter suites: `staff_dashboard_test`, `staff_queue_test`, `staff_actions_test`,
+`staff_reports_test`.
+
+**Outstanding.** Same as Phase 5 — the Dart has not been compiled. Phase 6 closes when
+`flutter analyze && flutter test` run clean and a staff member has driven a ticket
+`call → start → complete` on a device against the live API.
 
 ---
 
@@ -285,7 +331,7 @@ written.
 | 3 Auth | ☑ | `tests/auth.test.ts` (30) |
 | 4 Queue engine | ☑ | `queue.engine` (41), `transitions` (53), `concurrency` (14) |
 | 5 Customer app | ☐ | widget tests + manual run |
-| 6 Staff app | ☐ | `tests/staff.test.ts` + §74 walkthrough |
+| 6 Staff app | ◐ | `tests/staff.test.ts` (34) ☑ · Flutter awaiting a device run |
 | 7 Admin | ☐ | role matrix tests |
 | 8 Reports | ☐ | `tests/reports.test.ts` |
 | 9 Hardening | ☐ | coverage + responsive audit |

@@ -325,37 +325,73 @@ The internal `threshold_notified` marker used to de-duplicate the "approaching" 
 ## 7. Counters — `/counters`
 
 ```text
-GET    /counters?serviceId=1&status=available      staff+
-POST   /counters            { serviceId, counterNumber, name, status }        admin  → 201
-PUT    /counters/:id        { counterNumber, name, status }                   admin
-PATCH  /counters/:id/status { status: "available" | "busy" | "offline" }      staff (own counter) / admin
-POST   /counters/:id/assign { staffId }    /  DELETE /counters/:id/assign     admin
+GET    /counters?serviceId=1&status=available      staff+                        ✅ Phase 6
+PATCH  /counters/:id/status { status: "available" | "busy" | "offline" }         ✅ Phase 6
+                                                   staff (own counter) / admin
+POST   /counters            { serviceId, counterNumber, name, status }   admin → 201   Phase 7
+PUT    /counters/:id        { counterNumber, name, status }              admin         Phase 7
+POST   /counters/:id/assign { staffId }  /  DELETE /counters/:id/assign  admin         Phase 7
 ```
 
 `409 COUNTER_NUMBER_TAKEN`, `409 STAFF_ALREADY_ASSIGNED`, `409 COUNTER_BUSY` (cannot take a counter
 offline while it is serving).
+
+`GET /counters` returns the `toCounterDto` shape — `{ id, serviceId, serviceName, serviceCode,
+counterNumber, name, status, staff, currentTicket }`. A staff member asking for a `serviceId` that is
+not their own gets `403 NOT_ASSIGNED_TO_SERVICE`; admins may ask for any.
+
+`PATCH /counters/:id/status` answers with `{ id, serviceId, counterNumber, name, status,
+assignedStaffId }`.
 
 ---
 
 ## 8. Staff — `/staff`
 
 ```text
-GET  /staff?serviceId=1&status=active&search=jane      admin
-POST /staff  { firstName,lastName,email,phone,password,serviceId?,counterId? }   admin → 201
-PUT  /staff/:id  { firstName,lastName,phone,status }                             admin
-POST /staff/:id/assign    { serviceId, counterId? }                              admin
-POST /staff/:id/unassign  { assignmentId? }                                      admin
-GET  /staff/:id/statistics?from=&to=                                             staff(self)+admin
+GET  /staff/:id/statistics?from=&to=                             staff(self)+admin   ✅ Phase 6
+GET  /staff/:id/tickets?from=&to=&status=&page=&limit=           staff(self)+admin   ✅ Phase 6
+GET  /staff?serviceId=1&status=active&search=jane                            admin       Phase 7
+POST /staff  { firstName,lastName,email,phone,password,serviceId?,counterId? } admin → 201  Phase 7
+PUT  /staff/:id  { firstName,lastName,phone,status }                         admin       Phase 7
+POST /staff/:id/assign    { serviceId, counterId? }                          admin       Phase 7
+POST /staff/:id/unassign  { assignmentId? }                                  admin       Phase 7
 ```
+
+`:id` accepts the literal `me`, so the client never has to interpolate its own user id into a URL it
+is already authenticated for. A staff member reading somebody else's figures gets `403`.
 
 `GET /staff/:id/statistics` (§37):
 
 ```json
-{ "data": { "staff": { "id":7, "name":"Jane Wanjiku" },
-  "range": { "from":"2026-09-01", "to":"2026-09-29" },
-  "ticketsServed": 312, "ticketsSkipped": 11, "ticketsNoShow": 6,
+{ "data": { "staff": { "id":7, "name":"Jane Wanjiku",
+                       "email":"jane.staff@smartqueue.test", "role":"staff" },
+  "range": { "from":"2026-09-23", "to":"2026-09-29" },
+  "ticketsServed": 312, "ticketsSkipped": 11, "ticketsNoShow": 6, "ticketsRecalled": 9,
+  "ticketsHandled": 329, "completionRate": 95,
   "averageServiceMinutes": 5.8, "averageWaitMinutes": 17.2,
   "byDay": [ { "date":"2026-09-28", "served":42, "averageServiceMinutes":5.5 } ] } }
+```
+
+The range defaults to the last seven days. `completionRate` is `ticketsServed ÷ ticketsHandled`, as a
+percentage — a counter that skips half its queue shows it here.
+
+**Attribution.** A ticket counts towards a staff member when *they* caused the event
+(`queue_events.user_id`), not when it happens to sit at their counter. Counters get reassigned; the
+audit trail does not move.
+
+### `GET /staff/:id/tickets` — the counter's own history
+
+Added in Phase 6. `GET /tickets/my` is scoped to the caller's tickets **as a customer**, so it cannot
+answer "what did I handle today?". This one lists the tickets the staff member called, recalled,
+started, completed, skipped or marked as a no-show — each ticket once, however many times they
+touched it.
+
+```json
+{ "data": { "tickets": [ { "id":402, "ticketNumber":"FIN-022", "status":"completed",
+                           "customer": { "fullName":"Mary Atieno", "phone":"…" },
+                           "waitedMinutes":14, "serviceMinutes":6 } ],
+            "range": { "from":"2026-09-23", "to":"2026-09-29" } },
+  "meta": { "page":1, "limit":20, "total":48, "totalPages":3 } }
 ```
 
 ---
@@ -422,17 +458,38 @@ DELETE /announcements/:id
 `servedPerDay` and `statusBreakdown` feed the charts of §42 — all values are SQL aggregates, none are
 hard-coded.
 
-### `GET /dashboard/staff` (§20)
+### `GET /dashboard/staff?serviceId=&counterId=` (§20) — ✅ Phase 6
+
+The whole console in one request, so the waiting count in the header can never disagree with the list
+under it. `currentTicket` and `upNext[]` are full ticket DTOs with the customer attached — the same
+shape the transitions return — rather than the trimmed pair sketched during design.
 
 ```json
-{ "data": { "service": { "id":1, "name":"Finance Office", "code":"FIN" },
-  "counter": { "id":2, "counterNumber":2, "name":"Finance Counter 2", "status":"busy" },
+{ "data": {
+  "today": "2026-09-29",
+  "assigned": true,
+  "assignment": { "id":4, "serviceId":1, "serviceName":"Finance Office", "serviceCode":"FIN",
+                  "counterId":2, "counterNumber":2, "counterName":"Finance Counter 2",
+                  "assignedAt":"…", "status":"active" },
+  "service": { "id":1, "name":"Finance Office", "code":"FIN", "status":"open" },
+  "counter": { "id":2, "serviceId":1, "counterNumber":2, "name":"Finance Counter 2",
+               "status":"busy", "assignedStaffId":7 },
+  "queue":   { "queueId":101, "waitingCount":12, "nowServing":"FIN-022", "completedToday":45, … },
   "currentTicket": { "id":402, "ticketNumber":"FIN-022", "status":"serving",
-                     "customerName":"Mary Atieno", "joinedAt":"…", "waitedMinutes":14 },
-  "upNext": [ { "ticketNumber":"FIN-023", "waitedMinutes":11 } ],
-  "stats": { "waiting":12, "servedToday":45, "skippedToday":2, "noShowToday":1,
+                     "customer": { "id":24, "fullName":"Mary Atieno", "phone":"…" },
+                     "joinedAt":"…", "waitedMinutes":14, "serviceMinutes":3 },
+  "upNext": [ { "id":403, "ticketNumber":"FIN-023", "waitedMinutes":11, "customer": { … } } ],
+  "stats": { "waiting":12, "servedToday":9, "skippedToday":2, "noShowToday":1, "cancelledToday":0,
              "averageServiceMinutes":6, "averageWaitMinutes":18 } } }
 ```
+
+`stats.servedToday` is what **this** clerk completed; the service-wide figure is
+`queue.completedToday`.
+
+An unassigned staff member gets `200` with `assigned:false` and everything else null or zero — the
+screen then explains that an administrator needs to post them to a service, which is more useful than
+a 403. Admins have no assignment either, so for them `serviceId` selects the desk to supervise and
+defaults to the first open service.
 
 ---
 

@@ -1,12 +1,13 @@
 # SmartQueue — Flutter client
 
-The customer-facing app for the Smart Queue Management System. It talks to
-the Express API in [`../server`](../server) over REST; it holds no business
-logic of its own and invents no data.
+The client for the Smart Queue Management System. It talks to the Express API
+in [`../server`](../server) over REST; it holds no business logic of its own
+and invents no data.
 
-Phase 5 of the build ships the **authentication and customer** experience.
-The staff console (Phase 7) and the admin console (Phase 8) reuse the same
-core, models and widgets.
+Phase 5 shipped the **authentication and customer** experience; Phase 6 added
+the **staff console**. The admin console (Phase 7) reuses the same core,
+models and widgets. Which app you land in is decided by your role: customers
+start at `/home`, staff and admins at `/staff/console`.
 
 ---
 
@@ -84,10 +85,19 @@ flutter analyze         # static analysis
 | `test/features/service_list_test.dart` | Server-side search, disabled Join, empty states |
 | `test/features/ticket_screen_test.dart` | Live position updates between polls |
 | `test/features/cancel_dialog_test.dart` | Cancelling always needs confirmation |
+| `test/features/staff_dashboard_test.dart` | The console: stats, up-next, Call Next and every reason it is unavailable |
+| `test/features/staff_queue_test.dart` | The waiting list and the per-row Call |
+| `test/features/staff_actions_test.dart` | Which transitions each ticket state offers, and the skip confirmation |
+| `test/features/staff_reports_test.dart` | Statistics totals and chart, history filters |
 
-Widget tests run against fakes of the five repositories
+Widget tests run against fakes of the six repositories
 (`test/helpers/test_harness.dart`), so no HTTP and no platform channels are
 involved.
+
+The staff console polls for as long as it is on screen, so its tests finish
+with `tester.unmountAndDrain(harness)`: that takes the tree down and pumps
+once more so the last `Future.delayed` fires and the generator exits. Without
+it the test would end with a timer still pending.
 
 ---
 
@@ -115,6 +125,8 @@ lib/
     ├── customer/              shell, dashboard, services, ticket, queue,
     │                          history, alerts, announcements, profile,
     │                          settings
+    ├── staff/                 shell, console, current queue, ticket detail,
+    │                          history, statistics, profile
     └── misc/                  about, 404
 ```
 
@@ -142,6 +154,7 @@ There are no websockets and no push notifications — §82 rules both out.
 | Ticket / dashboard ticket panel | `GET /tickets/:id/position` | 5 s (adjustable in Settings) |
 | Queue board | `GET /queues/:id/status` | 10 s |
 | Unread badge | `GET /notifications/unread-count` | 30 s |
+| Staff console | `GET /dashboard/staff` | 10 s |
 
 The ticket loop stops itself the moment the ticket reaches a terminal state,
 and every polling provider is `autoDispose`, so leaving a screen ends its

@@ -44,6 +44,16 @@ class ApiEndpoints {
   static String skipTicket(int id) => '/tickets/$id/skip';
   static String noShowTicket(int id) => '/tickets/$id/no-show';
 
+  // staff console
+  static const String staffDashboard = '/dashboard/staff';
+  static const String counters = '/counters';
+  static String counterStatus(int id) => '/counters/$id/status';
+  /// `me` is accepted by the server, so the client never interpolates its
+  /// own user id into a URL it is already authenticated for.
+  static const String myStatistics = '/staff/me/statistics';
+  static const String myHandledTickets = '/staff/me/tickets';
+  static String staffStatistics(int id) => '/staff/$id/statistics';
+
   // notifications
   static const String notifications = '/notifications';
   static const String unreadCount = '/notifications/unread-count';

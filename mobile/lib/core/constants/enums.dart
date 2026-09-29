@@ -131,6 +131,10 @@ enum CounterStatus {
     }
   }
 
+  /// All three spell the same on the wire; the getter exists so call sites
+  /// read the same as they do for [TicketStatus], which does not.
+  String get wire => name;
+
   String get label {
     switch (this) {
       case CounterStatus.available:
