@@ -79,13 +79,11 @@ export that saves the server's own file into the app's documents directory.
 
 ```bash
 flutter analyze         # static analysis — no issues
-flutter test            # 21 suites, ~228 tests
+flutter test            # 21 suites, 228 tests
 ```
 
-Last run: green on Flutter 3.35 / Dart 3.9 for the first 19 suites (191
-tests). The two audit suites added with Phase 9 — `responsive/layout_audit`
-and `states/state_audit` — have not been run yet. Phase 8 added
-`path_provider`, so run `flutter pub get` first.
+Last run: **all 21 suites, 228 tests, green** on Flutter 3.35 / Dart 3.9.
+Run `flutter pub get` first — Phase 8 added `path_provider`.
 
 | Suite | What it pins down |
 | --- | --- |

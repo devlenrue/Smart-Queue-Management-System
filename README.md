@@ -29,7 +29,7 @@
 | 6 — Staff app | ☑ complete — staff dashboard, statistics and counter endpoints (34 tests) + a 6-screen Flutter console |
 | 7 — Admin | ☑ complete — administration API (59 tests): users, roster, counters, service CRUD, announcements, system settings, institution dashboard + a 12-screen Flutter console |
 | 8 — Reporting | ☑ complete — four management reports + CSV export (63 tests) + a Flutter reporting console; 191 Flutter tests green |
-| 9 — Testing | ◐ backend complete — error-code catalogue, one negative path per 4xx code, security suite, enforced coverage (85 tests, 457 total); two Flutter audit suites await a `flutter test` run |
+| 9 — Testing | ☑ complete — error-code catalogue, one negative path per 4xx code, security suite, enforced coverage (85 backend tests, 457 total) + responsive and state audits on the client (37 tests, 228 total) |
 | 10 — Documentation | ◐ — README to §76, user guide, known limitations, an executable §85 walkthrough (`npm run walkthrough`, 15/15); screenshots still need a device |
 
 Full plan: [`docs/roadmap.md`](docs/roadmap.md).
@@ -260,14 +260,12 @@ npm test              # 457 tests across 13 suites
 ```bash
 cd mobile
 flutter analyze       # no issues
-flutter test          # 191 tests across 19 suites (21 once Phase 9 is run)
+flutter test          # 228 tests across 21 suites
 ```
 
 The Flutter suites are listed in [`mobile/README.md`](mobile/README.md#2-tests); they run against
-fakes of the repository layer, so no HTTP and no platform channels are involved. 191 of them, across
-19 suites, have been run on a real Flutter 3.35 / Dart 3.9 install. Phase 9 adds two more —
-`test/responsive/layout_audit_test.dart` and `test/states/state_audit_test.dart` — which have not
-been run yet.
+fakes of the repository layer, so no HTTP and no platform channels are involved. All 228, across 21
+suites, have been run on a real Flutter 3.35 / Dart 3.9 install.
 
 Coverage is measured and enforced:
 

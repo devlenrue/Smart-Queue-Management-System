@@ -47,7 +47,7 @@ or `SERVICE_ID` to walk a different queue.
 ## A recorded run
 
 Against the seeded database on the SQLite fallback, 29 September 2026. Every line below is the
-script's own output.
+script's own output, unedited.
 
 ```text
 ══ SmartQueue — §85 walkthrough against http://localhost:5000/api/v1 ══

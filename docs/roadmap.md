@@ -18,7 +18,7 @@ the target stack — but it changes how each phase is *proved*:
 | --- | --- | --- |
 | Database | MySQL 8, `smart_queue`, `database/migrations/*.mysql.sql` | A byte-for-byte equivalent SQLite schema (`*.sqlite.sql`) generated from the same table definitions, driven through the identical repository layer by a `SqliteDriver`. Every migration file is also syntax-checked. |
 | Backend | `mysql2` pool against MySQL | Full test suite + a live server run against the SQLite driver; all SQL stays within the portable subset, and MySQL-only clauses (`FOR UPDATE`, `ENUM`) are emitted by the driver, not scattered through the code |
-| Flutter | `flutter run` / `flutter build apk` | The SDK is unreachable from the sandbox, so the source is written to compile against the pinned SDK and read by eye against `flutter_lints`, then **run on the student's machine**: `flutter analyze` reports no issues and `flutter test` passes all 191 tests across 19 suites on Flutter 3.35 / Dart 3.9 |
+| Flutter | `flutter run` / `flutter build apk` | The SDK is unreachable from the sandbox, so the source is written to compile against the pinned SDK and read by eye against `flutter_lints`, then **run on the student's machine**: `flutter analyze` reports no issues and `flutter test` passes all 228 tests across 21 suites on Flutter 3.35 / Dart 3.9 |
 
 The database abstraction is one small interface (`DbDriver`) with two implementations. It is ~120 lines,
 it is documented, and it is the reason the queue engine can be tested at all in this environment. On the
@@ -374,7 +374,7 @@ no analyzer issues, **191 tests across 19 suites green**, including the 14 in
 
 ---
 
-## PHASE 9 — Testing and hardening ◐
+## PHASE 9 — Testing and hardening ☑
 
 **Objective.** Confidence and polish: prove the parts of the system that only show themselves when
 something goes wrong.
@@ -418,13 +418,13 @@ something goes wrong.
 lines 95.4 % → **99.4 %**. Now enforced: Jest fails under 95/80/95/97 for the services layer as a
 group, 90/70/90/90 for any single service file, and 88/68/86/90 for `src/` overall.
 
-**Flutter — written, not yet run.** 2 new files under `mobile/test` (21 suites total):
+**Flutter — 37 new tests, suite now 228 across 21 files.** 2 new files under `mobile/test`:
 
-* `test/responsive/layout_audit_test.dart` — five screens pumped at 360, 768 and 1280 dp. At each
+* `test/responsive/layout_audit_test.dart` (18) — five screens pumped at 360, 768 and 1280 dp. At each
   width it asserts no layout exception was thrown, then that the breakpoint *did something*: a
   `DataTable` on a laptop and a tablet, cards on a phone, and service cards one, two and three to a
   row. Height is held at 1600 so a failure points at the width rule, not at scrolling.
-* `test/states/state_audit_test.dart` — a table of six screens with the fake state that starves each
+* `test/states/state_audit_test.dart` (19) — a table of six screens with the fake state that starves each
   one, run through the same three checks: something on screen while it loads (§64), an `EmptyState`
   that explains itself rather than a blank list (§65), and an `ErrorState` with a retry that really
   re-asks the server.
@@ -438,13 +438,16 @@ reaching for a framework-of-frameworks on a project this size.
 **Database.** None.
 
 **Test.** `npm test` green (457) · `npm run test:coverage` green against the thresholds ·
-`flutter analyze && flutter test` on the student's machine · the §85 walkthrough end-to-end, which
+`flutter test` green (228) on the student's machine · the §85 walkthrough end-to-end, which
 is now `npm run walkthrough` and is recorded in [`docs/walkthrough.md`](walkthrough.md) — fifteen
 steps, all green against the seeded database.
 
-**Outstanding.** The two new Flutter suites have not been run — the sandbox has no Flutter SDK.
-Phase 9 closes when `flutter test` is green and the walkthrough has been run against MySQL rather
-than the SQLite fallback.
+**Verified.** `flutter pub get && flutter test` on the student's machine — **228 tests across 21
+suites, green**, both new suites passing on their first run. Backend: 457 tests, typecheck clean,
+coverage thresholds met, `npm audit` 0 vulnerabilities.
+
+**Outstanding.** The walkthrough has been run end to end against the SQLite fallback, not yet
+against MySQL.
 
 ---
 
@@ -515,5 +518,5 @@ Flutter installed — the SQLite path has been dry-run here end to end.
 | 6 Staff app | ☑ | `tests/staff.test.ts` (34) · 4 Flutter suites |
 | 7 Admin | ☑ | `tests/admin.test.ts` (59) · 4 Flutter suites |
 | 8 Reports | ☑ | `tests/reports.test.ts` (63) · `flutter test` 191/191 |
-| 9 Hardening | ◐ | `errors` (46) · `security` (9) · `edge.cases` (30); 2 Flutter suites awaiting a device run |
+| 9 Hardening | ☑ | `errors` (46) · `security` (9) · `edge.cases` (30) · `layout_audit` (18) · `state_audit` (19) — 228 Flutter tests green |
 | 10 Docs | ◐ | `npm run walkthrough` 15/15 · README smoke commands run as written; screenshots outstanding |

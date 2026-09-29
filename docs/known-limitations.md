@@ -120,19 +120,16 @@ channels, no server. This makes them fast and deterministic, and it means they p
 
 ## 9. Parts that have not been run
 
-Written and reviewed, not executed. The sandbox this was built in has no Flutter SDK, so the Dart
-could not be compiled here.
+Two things, both needing hardware this was not built on.
 
 | What | State |
 | --- | --- |
-| `test/responsive/layout_audit_test.dart` | Written; not run |
-| `test/states/state_audit_test.dart` | Written; not run |
-| The §85 walkthrough against **MySQL** | Performed end-to-end against the SQLite fallback and the full test suite; not yet against a live MySQL server |
-| Screenshots | Not taken — see `docs/screenshots/README.md` for the shot list |
+| The §85 walkthrough against **MySQL** | Run end to end against the SQLite fallback (`npm run walkthrough`, 15/15) and covered by the full test suite; not yet against a live MySQL server |
+| Screenshots | Not taken — see [`screenshots/README.md`](screenshots/README.md) for the shot list |
 
 Everything else has been run: `npm test` (457 tests, 13 suites), `npm run typecheck`,
-`npm run test:coverage` against enforced thresholds, and `flutter analyze` + `flutter test`
-(191 tests, 19 suites) on Flutter 3.35 / Dart 3.9.
+`npm run test:coverage` against enforced thresholds, `npm audit` (0 vulnerabilities), and
+`flutter test` (228 tests, 21 suites) on Flutter 3.35 / Dart 3.9.
 
 ---
 
