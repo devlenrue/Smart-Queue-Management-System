@@ -132,7 +132,8 @@ call, recall, start, complete, skip, no-show).
 
 **Flutter.** None yet.
 
-**Result.** 146 new tests, 196 in total, all passing.
+**Result.** 146 new tests, 196 in total, all passing. (Phase 5 later added the notification and
+announcement endpoints with 20 more, bringing the suite to **216**.)
 
 - `tests/services.test.ts` (30) — catalogue, search, pagination, admin CRUD, hours, settings
 - `tests/queue.engine.test.ts` (43) — numbering, join guards, estimation, position, **the §85 workflow
@@ -146,24 +147,46 @@ audit trail, admin monitor, pause/resume, cancel.
 
 ---
 
-## PHASE 5 — Customer app ☐
+## PHASE 5 — Customer app ◐
 
 **Objective.** A customer can register, browse services, take a ticket and watch it move — against the
 real API.
 
-**Create.** `mobile/lib/core/network/*`, `storage/*`, `errors/*`, `models/*`, `services/*`,
-`repositories/*`, `providers/auth_providers.dart`, `providers/customer_providers.dart`,
-`features/auth/*`, `features/customer/*`, the shared `widgets/*`, and the widget tests of
-`docs/flutter-app.md` §10.
+**Written.** 75 Dart files under `mobile/lib`, plus 10 under `mobile/test`:
 
-**Modify.** `app_router.dart` (real routes + guard), `main.dart` (ProviderScope + bootstrap).
+* `core/` — constants, `Failure` hierarchy + `ErrorMapper`, Dio client with the auth interceptor and
+  envelope unwrapping, keystore/prefs storage, Material 3 theme with the `StatusPalette` extension,
+  validators, formatters, polling helpers, responsive breakpoints, the guarded GoRouter.
+* `models/` — hand-written `fromJson` for user, service, queue, ticket, counter, notification,
+  announcement and the paging envelope. No code generation.
+* `services/` → `repositories/` → `providers/` — five API classes, five repositories, and the
+  Riverpod graph (`infrastructure`, `auth`, `customer`).
+* `widgets/` — `AppCard`, buttons, text field, status badge, service/ticket/queue cards, stat card,
+  skeletons, empty and error states, confirmation dialog, notification tile, form error banner.
+* `features/auth/` — splash (session restore with retry), login, register, forgot password.
+* `features/customer/` — five-tab shell, dashboard, service list and detail, join sheet, ticket
+  screen with live position, queue board, history, alerts, announcements, profile, settings.
+
+**Backend addendum.** The inbox and the announcements strip needed endpoints that did not exist yet, so
+Phase 5 also added `announcement.repository.ts`, `notification.serializer.ts`,
+`notification.validators.ts`, `notification.controller.ts`, `notification.routes.ts`, the two query
+services, and `tests/notifications.test.ts` — **20 tests, suite now 216**.
+
+**Deliberately deferred.** `AppDataTable` and `ChartCard` belong to the staff and admin consoles; they
+are written in Phases 7–8 rather than shipped here as dead code.
 
 **Database.** None.
 
 **API.** Consumes auth, services, queues, tickets, notifications, announcements.
 
-**Test.** Manual: register → join → ticket screen updates while a second client calls the ticket.
-Automated: the eight widget tests.
+**Test.** Nine Flutter suites: validators, error mapper, formatters, status badge, login, register,
+service list, ticket screen, cancel dialog. Widget tests run against fakes of the five repositories,
+so no HTTP and no platform channels are involved.
+
+**Outstanding.** The sandbox used to build this has no Flutter SDK and no access to `pub.dev`, so the
+Dart has never been compiled. Phase 5 closes when `flutter pub get && flutter analyze && flutter test`
+run clean on a machine that has the toolchain, and the §85 walkthrough has been performed on a device
+against the live API.
 
 ---
 

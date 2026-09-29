@@ -1,0 +1,37 @@
+import '../core/constants/api_endpoints.dart';
+import '../core/network/api_client.dart';
+import '../models/queue.dart';
+import '../models/ticket.dart';
+
+class QueueApi {
+  const QueueApi(this._client);
+
+  final ApiClient _client;
+
+  Future<QueueStatusView> status(int queueId) async {
+    final response = await _client.get<Map<String, dynamic>>(
+      ApiEndpoints.queueStatus(queueId),
+      parse: Parse.object,
+    );
+    return QueueStatusView.fromJson(response.data);
+  }
+
+  Future<QueueStatusView> forService(int serviceId) async {
+    final response = await _client.get<Map<String, dynamic>>(
+      ApiEndpoints.serviceQueue(serviceId),
+      parse: Parse.object,
+    );
+    return QueueStatusView.fromJson(response.data);
+  }
+
+  /// Rule 1 lives on the server: a second active ticket for the same service
+  /// comes back as 409 DUPLICATE_ACTIVE_TICKET, which the error mapper turns
+  /// into a [ConflictFailure] for the UI to explain.
+  Future<JoinResult> join(int serviceId) async {
+    final response = await _client.post<Map<String, dynamic>>(
+      ApiEndpoints.joinService(serviceId),
+      parse: Parse.object,
+    );
+    return JoinResult.fromJson(response.data);
+  }
+}

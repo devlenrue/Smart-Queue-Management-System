@@ -16,7 +16,7 @@
 | 2 — Database | ☑ complete — 14 tables, 5 migrations × 2 dialects, deterministic seed, 20 schema tests |
 | 3 — Backend foundation (auth) | ☑ complete — bcrypt + JWT, 4 roles, validation, rate limiting, 30 auth tests |
 | 4 — Queue engine ★ | ☑ complete — join, ticket numbering, position, calling, serving, concurrency, 108 tests |
-| 5 — Customer app | ☐ |
+| 5 — Customer app | ◐ written, awaiting a device run — Flutter client: auth + 14 customer screens, 9 test suites, plus the `/notifications` and `/announcements` endpoints it needs |
 | 6 — Staff app | ☐ |
 | 7 — Admin | ☐ |
 | 8 — Reporting | ☐ |
@@ -103,7 +103,8 @@ flutter run --dart-define=API_BASE_URL=http://localhost:5000/api/v1
 
 Android emulator: use `http://10.0.2.2:5000/api/v1`. Physical device: your machine's LAN IP.
 
-The Flutter client arrives in Phase 5; steps 1 and 2 work today.
+The Flutter client lives in [`mobile/`](mobile/) and is documented in [`mobile/README.md`](mobile/README.md).
+Platform folders are not committed, so the first run needs `flutter create .` — see that README.
 
 ### Running without a MySQL server
 
@@ -124,7 +125,7 @@ database server.
 ```bash
 cd server
 npm run typecheck     # tsc --noEmit
-npm test              # 196 tests
+npm test              # 216 tests
 ```
 
 | Suite | Tests | Covers |
@@ -135,6 +136,7 @@ npm test              # 196 tests
 | `tests/queue.engine.test.ts` | 43 | joining, ticket numbering, estimated wait, position tracking, §85 end to end |
 | `tests/transitions.test.ts` | 59 | the ticket state machine, every legal and illegal edge, who may drive it |
 | `tests/concurrency.test.ts` | 14 | §60 — simultaneous joins, simultaneous calls, database-level guards |
+| `tests/notifications.test.ts` | 20 | the inbox: ownership isolation, filters, paging, idempotent mark-read, announcement visibility |
 
 ---
 

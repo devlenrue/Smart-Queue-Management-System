@@ -5,7 +5,10 @@
 import { getDb } from '../db';
 import type { DbConn } from '../db/types';
 import { notificationRepository } from '../repositories/notification.repository';
+import { announcementRepository } from '../repositories/announcement.repository';
 import { eventRepository } from '../repositories/event.repository';
+import { AppError } from '../utils/AppError';
+import { toAnnouncementDto, toNotificationDto, type NotificationDto } from '../serializers/notification.serializer';
 import type { NotificationType } from '../types/domain';
 
 interface TicketContext {
@@ -123,5 +126,60 @@ export const notificationService = {
     for (const userId of userIds) {
       await send(conn, userId, null, title, message, 'announcement');
     }
+  },
+};
+
+// ---------------------------------------------------------------------------
+// Reads — what the notification screen and the unread badge call (§37)
+// ---------------------------------------------------------------------------
+
+export const notificationQueryService = {
+  async list(
+    userId: number,
+    filters: { isRead?: boolean; type?: NotificationType; page: number; limit: number },
+  ): Promise<{ notifications: NotificationDto[]; total: number; unread: number }> {
+    const [{ rows, total }, unread] = await Promise.all([
+      notificationRepository.list({ userId, ...filters }),
+      notificationRepository.unreadCount(userId),
+    ]);
+    return { notifications: rows.map(toNotificationDto), total, unread };
+  },
+
+  async unreadCount(userId: number): Promise<number> {
+    return notificationRepository.unreadCount(userId);
+  },
+
+  /** Marking someone else's notification read is a 404, not a 403 — it simply isn't theirs. */
+  async markRead(id: number, userId: number): Promise<NotificationDto> {
+    const affected = await notificationRepository.markRead(id, userId);
+    if (affected === 0) {
+      const existing = await notificationRepository.findById(id);
+      if (!existing || Number(existing.user_id) !== userId) {
+        throw AppError.notFound('That notification could not be found.');
+      }
+    }
+    const row = await notificationRepository.findById(id);
+    if (!row) throw AppError.notFound('That notification could not be found.');
+    return toNotificationDto(row);
+  },
+
+  async markAllRead(userId: number): Promise<{ updated: number; unread: number }> {
+    const updated = await notificationRepository.markAllRead(userId);
+    return { updated, unread: await notificationRepository.unreadCount(userId) };
+  },
+};
+
+export const announcementQueryService = {
+  async listPublished(filters: { serviceId?: number; page: number; limit: number }) {
+    const { rows, total } = await announcementRepository.listPublished(filters);
+    return { announcements: rows.map(toAnnouncementDto), total };
+  },
+
+  async getById(id: number) {
+    const row = await announcementRepository.findById(id);
+    if (!row || row.status !== 'published') {
+      throw AppError.notFound('That announcement could not be found.');
+    }
+    return toAnnouncementDto(row);
   },
 };
