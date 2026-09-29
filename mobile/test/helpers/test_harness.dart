@@ -866,16 +866,6 @@ extension PumpX on WidgetTester {
     await pump();
   }
 
-  /// Lets a SnackBar finish and time out.
-  ///
-  /// A test that asserts a confirmation message must call this before it
-  /// ends, or the messenger's four-second dismissal timer is still pending
-  /// when the tree is torn down, and the test fails on that instead of on
-  /// anything it was checking.
-  Future<void> drainSnackBars() async {
-    await pumpAndSettle(const Duration(seconds: 6));
-  }
-
   /// Runs the polling loop forward until it stops on its own.
   ///
   /// `pumpAndSettle` only waits for frames, and a poll interval is a bare

@@ -136,6 +136,15 @@ void main() {
       await tester.pumpScreen(harness, const StaffHistoryScreen());
       await tester.pumpAndSettle();
 
+      // The filter strip scrolls horizontally, and "No-show" sits off the
+      // right edge of a phone, so it has to be brought into view first.
+      await tester.dragUntilVisible(
+        find.byKey(const Key('history-filter-no_show')),
+        find.byKey(const Key('history-filters')),
+        const Offset(-120, 0),
+      );
+      await tester.pumpAndSettle();
+
       await tester.tap(find.byKey(const Key('history-filter-no_show')));
       await tester.pumpAndSettle();
 

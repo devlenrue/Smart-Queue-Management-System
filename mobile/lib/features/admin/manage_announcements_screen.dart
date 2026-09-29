@@ -45,21 +45,24 @@ class ManageAnnouncementsScreen extends ConsumerWidget {
         children: <Widget>[
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-            child: Row(
-              children: <Widget>[
-                for (final AnnouncementStatus status in AnnouncementStatus.values)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: FilterChip(
-                      key: Key('admin-announcement-filter-${status.wire}'),
-                      label: Text(status.label),
-                      selected: filter == status,
-                      onSelected: (bool on) => ref
-                          .read(announcementFilterProvider.notifier)
-                          .set(on ? status : null),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: <Widget>[
+                  for (final AnnouncementStatus status in AnnouncementStatus.values)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: FilterChip(
+                        key: Key('admin-announcement-filter-${status.wire}'),
+                        label: Text(status.label),
+                        selected: filter == status,
+                        onSelected: (bool on) => ref
+                            .read(announcementFilterProvider.notifier)
+                            .set(on ? status : null),
+                      ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
           ),
           Expanded(

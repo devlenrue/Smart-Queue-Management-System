@@ -48,7 +48,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     setState(() => _submitting = true);
     try {
       await ref.read(authControllerProvider.notifier).login(
-            email: _email.text,
+            // Trimmed: a keyboard's autocomplete loves to add a space, and
+            // the server compares the address exactly. The password is sent
+            // as typed — a space in it is a character, not a typo.
+            email: _email.text.trim(),
             password: _password.text,
           );
       // The router's redirect takes it from here — no manual navigation.
@@ -153,8 +156,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       onPressed: _submit,
                     ),
                     const SizedBox(height: 20),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                    // Wrap, not Row: on a narrow phone the sentence and the
+                    // button together are wider than the screen, and a Row
+                    // would clip rather than fold.
+                    Wrap(
+                      alignment: WrapAlignment.center,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: <Widget>[
                         Text(
                           'New here?',

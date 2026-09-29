@@ -96,6 +96,7 @@ void main() {
 
     expect(harness.staff.actions, contains('start'));
     expect(find.text('FIN-012 started.'), findsOneWidget);
+    await tester.unmountAndDrain(harness);
   });
 
   testWidgets('completing a ticket calls the server', (WidgetTester tester) async {
@@ -110,6 +111,7 @@ void main() {
 
     expect(harness.staff.actions, contains('complete'));
     expect(find.text('FIN-012 completed.'), findsOneWidget);
+    await tester.unmountAndDrain(harness);
   });
 
   testWidgets('skipping asks first and does nothing if the clerk backs out',
@@ -143,6 +145,7 @@ void main() {
     await tester.pump();
 
     expect(harness.staff.actions, contains('skip'));
+    await tester.unmountAndDrain(harness);
   });
 
   testWidgets('a finished ticket offers nothing at all', (WidgetTester tester) async {

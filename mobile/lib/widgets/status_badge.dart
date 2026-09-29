@@ -79,6 +79,11 @@ class StatusBadge extends StatelessWidget {
         ?.copyWith(color: color);
 
     return Semantics(
+      // container + excludeSemantics so the badge speaks once, as
+      // "Status: Waiting", instead of merging the icon and the word into a
+      // node that reads the label twice.
+      container: true,
+      excludeSemantics: true,
       label: 'Status: $label',
       child: Container(
         padding: EdgeInsets.symmetric(horizontal: dense ? 8 : 10, vertical: dense ? 3 : 5),

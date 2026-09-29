@@ -148,12 +148,12 @@ void main() {
       expect(find.textContaining('Every active customer will be notified once'), findsOneWidget);
       expect(harness.admin.writes, isEmpty);
 
-      await tester.tap(find.text('Publish'));
+      await tester.tap(
+        find.descendant(of: find.byType(AlertDialog), matching: find.text('Publish')),
+      );
       await tester.pumpAndSettle();
 
       expect(harness.admin.writes, contains('announcement:1:publish'));
-
-      await tester.drainSnackBars();
     });
 
     testWidgets('filters to drafts only', (WidgetTester tester) async {
@@ -209,8 +209,6 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(harness.admin.writes, contains('settings:allow_registration'));
-
-      await tester.drainSnackBars();
     });
   });
 }

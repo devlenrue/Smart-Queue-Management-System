@@ -69,8 +69,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(harness.admin.writes, contains('staff:4:unassign'));
-
-    await tester.drainSnackBars();
   });
 
   testWidgets('a clerk who is not posted cannot be released',
@@ -101,8 +99,6 @@ void main() {
       find.text('Finance Counter 2 is still handling ticket FIN-012.'),
       findsOneWidget,
     );
-
-    await tester.drainSnackBars();
   });
 
   testWidgets('the new-staff form validates before it calls the server',
@@ -129,8 +125,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(harness.admin.writes, contains('staff:create:amina@smartqueue.test:-'));
-
-    await tester.drainSnackBars();
   });
 
   group('counters', () {
@@ -173,8 +167,6 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(harness.admin.writes, contains('counter:create:1:4'));
-
-      await tester.drainSnackBars();
     });
 
     testWidgets('refuses a counter number that is not a number',

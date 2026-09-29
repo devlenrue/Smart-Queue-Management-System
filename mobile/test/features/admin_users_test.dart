@@ -76,8 +76,6 @@ void main() {
 
     expect(harness.admin.writes, contains('user:9:status:suspended'));
     expect(find.textContaining('is now suspended'), findsOneWidget);
-
-    await tester.drainSnackBars();
   });
 
   testWidgets('reports a rejected suspension instead of pretending it worked',
@@ -92,8 +90,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('That account cannot be suspended.'), findsOneWidget);
-
-    await tester.drainSnackBars();
   });
 
   testWidgets('will not let an administrator act on their own row',

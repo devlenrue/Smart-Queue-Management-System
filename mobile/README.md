@@ -109,10 +109,11 @@ Both back offices poll for as long as they are on screen, so their tests
 finish with `tester.unmountAndDrain(harness)`: that takes the tree down and
 pumps once more so the last `Future.delayed` fires and the generator exits.
 The admin dashboard polls at three times the shared interval, so its tests
-pass that interval in (`unmountAndDrain(harness, interval: …)`). A test that
-asserts a confirmation message ends with `tester.drainSnackBars()` for the
-same reason — the messenger's dismissal timer would otherwise still be
-pending when the tree comes down.
+pass that interval in (`unmountAndDrain(harness, interval: …)`). A staff
+action does the same thing indirectly: completing a ticket invalidates the
+console, which starts polling, so those tests end the same way. SnackBars
+need no such help — `ScaffoldMessengerState.dispose` cancels its own
+dismissal timer when the tree goes.
 
 ---
 

@@ -180,7 +180,10 @@ class _ServedChart extends StatelessWidget {
                           // A day with zero served still gets 4px so the
                           // column is visible and the axis reads evenly.
                           Container(
-                            height: peak == 0 ? 4 : 4 + (110 * day.served / peak),
+                            // 98, not 110: the count above and the weekday
+                            // below take ~38px of the 150px box, and the
+                            // gaps another 10.
+                            height: peak == 0 ? 4 : 4 + (98 * day.served / peak),
                             decoration: BoxDecoration(
                               color: theme.colorScheme.primary
                                   .withValues(alpha: day.served == peak ? 0.95 : 0.55),
@@ -190,6 +193,8 @@ class _ServedChart extends StatelessWidget {
                           const SizedBox(height: 6),
                           Text(
                             _weekdayOf(day),
+                            maxLines: 1,
+                            overflow: TextOverflow.clip,
                             style: theme.textTheme.labelSmall?.copyWith(
                               color: theme.colorScheme.onSurfaceVariant,
                             ),

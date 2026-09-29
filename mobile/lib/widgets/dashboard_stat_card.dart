@@ -32,56 +32,72 @@ class DashboardStatCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         child: Padding(
           padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              Row(
+          child: LayoutBuilder(
+            builder: (BuildContext context, BoxConstraints constraints) {
+              // A card in a grid gets a fixed cell height, so the figure has
+              // to bend to fit it; a card in a list is free to be as tall as
+              // its content. `Flexible` only means anything against a bounded
+              // height, hence the check — without it this asserts in a list.
+              final bool bounded = constraints.hasBoundedHeight;
+              Widget bend(Widget child) => bounded ? Flexible(child: child) : child;
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: <Widget>[
-                  if (icon != null) ...<Widget>[
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: accent.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(10),
+                  Row(
+                    children: <Widget>[
+                      if (icon != null) ...<Widget>[
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: accent.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Icon(icon, size: 18, color: accent),
+                        ),
+                        const SizedBox(width: 10),
+                      ],
+                      Expanded(
+                        child: Text(
+                          label,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
-                      child: Icon(icon, size: 18, color: accent),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  // The figure is the one part that may be scaled down: the
+                  // label and caption are already ellipsised, and shrinking a
+                  // number a few percent is better than clipping it.
+                  bend(
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        value,
+                        style: theme.textTheme.headlineSmall?.copyWith(color: accent),
+                      ),
                     ),
-                    const SizedBox(width: 10),
-                  ],
-                  Expanded(
-                    child: Text(
-                      label,
+                  ),
+                  if (caption != null) ...<Widget>[
+                    const SizedBox(height: 2),
+                    Text(
+                      caption!,
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
-                      maxLines: 2,
+                      maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                  ),
+                  ],
                 ],
-              ),
-              const SizedBox(height: 12),
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  value,
-                  style: theme.textTheme.headlineSmall?.copyWith(color: accent),
-                ),
-              ),
-              if (caption != null) ...<Widget>[
-                const SizedBox(height: 4),
-                Text(
-                  caption!,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ],
+              );
+            },
           ),
         ),
       ),

@@ -8,6 +8,10 @@ import '../helpers/test_harness.dart';
 
 /// The full waiting list, and the per-row Call button that lets a clerk
 /// pull one specific person forward.
+///
+/// Every test pumps twice after mounting: the board resolves the clerk's
+/// assignment from the dashboard read before it asks for the queue monitor,
+/// so one frame still shows the skeleton.
 void main() {
   late TestHarness harness;
 
@@ -34,6 +38,7 @@ void main() {
       (WidgetTester tester) async {
     await tester.pumpScreen(harness, const CurrentQueueScreen());
     await tester.pump();
+    await tester.pump();
 
     expect(find.byKey(const Key('waiting-ticket-11')), findsOneWidget);
     expect(find.byKey(const Key('waiting-ticket-12')), findsOneWidget);
@@ -47,6 +52,7 @@ void main() {
   testWidgets('shows how long each person has waited', (WidgetTester tester) async {
     await tester.pumpScreen(harness, const CurrentQueueScreen());
     await tester.pump();
+    await tester.pump();
 
     expect(find.text('waited 4 min'), findsOneWidget);
     expect(find.text('waited 41 min'), findsOneWidget);
@@ -57,6 +63,7 @@ void main() {
   testWidgets('calls the specific ticket whose button was tapped',
       (WidgetTester tester) async {
     await tester.pumpScreen(harness, const CurrentQueueScreen());
+    await tester.pump();
     await tester.pump();
 
     await tester.tap(find.byKey(const Key('call-ticket-12')));
@@ -75,6 +82,7 @@ void main() {
 
     await tester.pumpScreen(harness, const CurrentQueueScreen());
     await tester.pump();
+    await tester.pump();
 
     expect(find.text('Queue cleared'), findsOneWidget);
 
@@ -86,6 +94,7 @@ void main() {
     harness.staff.dashboardValue = sampleStaffDashboard(withCounter: false);
 
     await tester.pumpScreen(harness, const CurrentQueueScreen());
+    await tester.pump();
     await tester.pump();
 
     final Finder button = find.byKey(const Key('call-ticket-11'));

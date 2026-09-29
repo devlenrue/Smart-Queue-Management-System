@@ -68,6 +68,7 @@ class _StaffHistoryScreenState extends ConsumerState<StaffHistoryScreen> {
           child: SizedBox(
             height: 52,
             child: ListView(
+              key: const Key('history-filters'),
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 16),
               children: <Widget>[
