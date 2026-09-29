@@ -39,7 +39,7 @@ marker's machine `DATABASE_URL=mysql://…` selects the MySQL driver and nothing
 
 ---
 
-## PHASE 1 — Project setup ☐
+## PHASE 1 — Project setup ☑
 
 **Objective.** A running Express server, a compiling Flutter shell, and a repo that a marker can clone.
 
@@ -67,17 +67,17 @@ marker's machine `DATABASE_URL=mysql://…` selects the MySQL driver and nothing
 
 ---
 
-## PHASE 2 — Database ☐
+## PHASE 2 — Database ☑
 
 **Objective.** The complete schema, applied by a repeatable migration runner, plus realistic seed data.
 
-**Architecture.** Adds `src/db/` — `driver.ts` (interface), `mysqlDriver.ts`, `sqliteDriver.ts`,
-`pool.ts`, `transaction.ts`, `migrate.ts`, `seed.ts`.
+**Architecture.** Adds `src/db/` — `types.ts` (the driver interface), `mysqlDriver.ts`,
+`sqliteDriver.ts`, `sql.ts` (dialect shims), `index.ts`, `migrate.ts`, `seed.ts`.
 
-**Create.** `database/migrations/001…012` (MySQL + SQLite variants), `database/seed/seed-data.ts`,
-`src/db/*`, `src/types/db.ts`.
+**Create.** `database/migrations/001…005` × two dialects, `src/db/*` (drivers, migrate, seed, CLI),
+`src/types/db.ts`.
 
-**Database.** All 12 migrations: 11 domain tables + support tables, every FK, unique key, check and index
+**Database.** All five domain-grouped migrations: 14 tables, every FK, unique key, check and index
 from `docs/database.md`, including the `active_service_id` generated column.
 
 **API.** None.
@@ -90,7 +90,7 @@ rejected by the **database**, not just the app.
 
 ---
 
-## PHASE 3 — Backend foundation ☐
+## PHASE 3 — Backend foundation ☑
 
 **Objective.** Authentication, authorisation, validation and error handling — the frame every later
 endpoint drops into.
@@ -113,26 +113,36 @@ logout then reuse the token → 401 · assert no response body ever contains `pa
 
 ---
 
-## PHASE 4 — Queue engine ★ ☐
+## PHASE 4 — Queue engine ★ ☑
 
 **Objective.** The core of the project: services, daily queues, concurrency-safe ticket issuing, position
 and estimate maths, and every state transition.
 
-**Create.** repositories `service`, `queue`, `ticket`, `counter`, `event`, `notification`;
-services `service.service.ts`, `queue.service.ts`, `ticket.service.ts`, `estimation.service.ts`,
-`notification.service.ts`; controllers + validators + routes for services / queues / tickets;
-`tests/queue.engine.test.ts`, `tests/concurrency.test.ts`, `tests/transitions.test.ts`.
+**Created.** repositories `service`, `counter`, `queue`, `ticket`, `event`, `notification`,
+`assignment`; services `estimation`, `notification`, `queue`, `ticket`, `service`;
+serializers `service`, `ticket`; `validators/queue.validators.ts`; controllers + routes for
+services / queues / tickets; `tests/{services,queue.engine,transitions,concurrency}.test.ts`.
 
 **Database.** Reads/writes `services`, `service_hours`, `queue_settings`, `queues`, `queue_tickets`,
-`queue_events`, `service_counters`, `notifications`.
+`queue_events`, `service_counters`, `staff_assignments`, `notifications`.
 
-**API.** All of §51 Services, §52 Queues and §53 Tickets.
+**API.** Services (list, search, detail, CRUD, hours, settings, categories) · Queues (list, status,
+join, monitor, pause/resume/close) · Tickets (my, active, detail, position, events, cancel, next,
+call, recall, start, complete, skip, no-show).
 
 **Flutter.** None yet.
 
-**Test.** The rule-by-rule matrix from `docs/queue-engine.md` §7, plus: 25 parallel joins produce
-sequences 1…25 with no duplicate (the headline concurrency test); position maths against a hand-computed
-fixture; the full `waiting → called → serving → completed` path; every illegal transition returns 409.
+**Result.** 146 new tests, 196 in total, all passing.
+
+- `tests/services.test.ts` (30) — catalogue, search, pagination, admin CRUD, hours, settings
+- `tests/queue.engine.test.ts` (43) — numbering, join guards, estimation, position, **the §85 workflow
+  end to end through the real API and database**
+- `tests/transitions.test.ts` (59) — the full legal/illegal edge matrix and Rule 4 authorisation
+- `tests/concurrency.test.ts` (14) — §60, see the table in `docs/queue-engine.md` §3
+
+Verified by hand as well: the API was run against the seeded database and the whole workflow walked
+through with `curl` — join, duplicate rejection, Rule 4 and Rule 5 rejections, call, serve, complete,
+audit trail, admin monitor, pause/resume, cancel.
 
 ---
 
@@ -247,10 +257,10 @@ written.
 | Phase | Status | Verified by |
 | --- | --- | --- |
 | 0 Design | ☑ | documents reviewed |
-| 1 Setup | ☐ | health endpoint + build |
-| 2 Database | ☐ | migration + schema tests |
-| 3 Auth | ☐ | `tests/auth.test.ts` |
-| 4 Queue engine | ☐ | `tests/queue.engine.test.ts`, `tests/concurrency.test.ts` |
+| 1 Setup | ☑ | health endpoint + build |
+| 2 Database | ☑ | migration + schema tests (20) |
+| 3 Auth | ☑ | `tests/auth.test.ts` (30) |
+| 4 Queue engine | ☑ | `queue.engine` (41), `transitions` (53), `concurrency` (14) |
 | 5 Customer app | ☐ | widget tests + manual run |
 | 6 Staff app | ☐ | `tests/staff.test.ts` + §74 walkthrough |
 | 7 Admin | ☐ | role matrix tests |

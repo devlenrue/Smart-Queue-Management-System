@@ -135,8 +135,21 @@ Why this is safe:
 4. **Bounded retry** — if a duplicate-key error is ever raised, the service retries the whole transaction up
    to 3 times before surfacing `409`.
 
-> Test plan: fire 25 concurrent `POST /queues/:id/join` requests for 25 users and assert that the returned
-> sequence numbers are exactly `1..25` with no gaps and no duplicates (`tests/concurrency.test.ts`).
+**Verified.** `server/tests/concurrency.test.ts` fires the requests genuinely in parallel with
+`Promise.all` and then audits the database:
+
+| Test | Assertion |
+| --- | --- |
+| 10 customers join at once | 10 distinct ticket numbers, `FIN-001`…`FIN-010` |
+| 12 customers join at once | sequence numbers are exactly `1..12` — no gaps, no repeats |
+| 8 customers join at once | `queues.last_issued_number` equals the ticket count |
+| 6 customers join at once, first of the day | exactly one `queues` row is created |
+| one customer taps Join 3× at once | exactly 1 ticket, 2 × `409 DUPLICATE_ACTIVE_TICKET` (Rule 1) |
+| 9 join a queue with capacity 3 | exactly 3 succeed, 6 × `409 QUEUE_FULL` (Rule 3) |
+| 3 staff call next simultaneously | 3 different tickets, `FIN-001`/`002`/`003`, different counters |
+| 3 completions of one ticket at once | 1 × `200`, 2 × `409`; `total_served` increments once |
+| cancel and call race on one ticket | one wins, the other gets `409` |
+| a hand-written duplicate `INSERT` | rejected by the database itself, `isDuplicateKeyError` is true |
 
 ---
 

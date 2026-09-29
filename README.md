@@ -12,10 +12,10 @@
 | Phase | State |
 | --- | --- |
 | **0 — Design** | ☑ complete — architecture, ER diagram, schema, API spec, screen map, queue state machine, roadmap |
-| 1 — Project setup | ☐ awaiting go-ahead |
-| 2 — Database | ☐ |
-| 3 — Backend foundation (auth) | ☐ |
-| 4 — Queue engine ★ | ☐ |
+| 1 — Project setup | ☑ complete — Express + TypeScript skeleton, config, logging, error envelope, health endpoint |
+| 2 — Database | ☑ complete — 14 tables, 5 migrations × 2 dialects, deterministic seed, 20 schema tests |
+| 3 — Backend foundation (auth) | ☑ complete — bcrypt + JWT, 4 roles, validation, rate limiting, 30 auth tests |
+| 4 — Queue engine ★ | ☑ complete — join, ticket numbering, position, calling, serving, concurrency, 108 tests |
 | 5 — Customer app | ☐ |
 | 6 — Staff app | ☐ |
 | 7 — Admin | ☐ |
@@ -81,7 +81,7 @@ docs/        architecture · database · api · queue-engine · flutter-app · r
 
 ---
 
-## Quick start (after Phase 2)
+## Quick start
 
 ```bash
 # 1. database
@@ -102,6 +102,39 @@ flutter run --dart-define=API_BASE_URL=http://localhost:5000/api/v1
 ```
 
 Android emulator: use `http://10.0.2.2:5000/api/v1`. Physical device: your machine's LAN IP.
+
+The Flutter client arrives in Phase 5; steps 1 and 2 work today.
+
+### Running without a MySQL server
+
+The repository layer talks to an interface, not to MySQL directly, so the whole API and its test suite
+can run on file-backed SQLite with the identical schema. Change one line in `.env`:
+
+```bash
+DATABASE_URL=sqlite://../database/local/dev.db
+npm run db:reset      # migrate + seed in one step
+npm run dev
+```
+
+MySQL remains the deployment target; this is only so the project can be marked on a machine without a
+database server.
+
+### Tests
+
+```bash
+cd server
+npm run typecheck     # tsc --noEmit
+npm test              # 196 tests
+```
+
+| Suite | Tests | Covers |
+| --- | --- | --- |
+| `tests/schema.test.ts` | 20 | every table, unique key and index; database-level rejection of a duplicate active ticket |
+| `tests/auth.test.ts` | 30 | registration, hashing, login, sessions, revocation, RBAC |
+| `tests/services.test.ts` | 30 | catalogue, search, pagination, admin CRUD, hours, queue settings |
+| `tests/queue.engine.test.ts` | 43 | joining, ticket numbering, estimated wait, position tracking, §85 end to end |
+| `tests/transitions.test.ts` | 59 | the ticket state machine, every legal and illegal edge, who may drive it |
+| `tests/concurrency.test.ts` | 14 | §60 — simultaneous joins, simultaneous calls, database-level guards |
 
 ---
 

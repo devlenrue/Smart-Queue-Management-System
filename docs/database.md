@@ -527,24 +527,30 @@ john.doe@smartqueue.test  / Password123! customer
 
 ## 8. Migration files
 
-Forward-only, numbered, applied by `npm run db:migrate` which records each version in
-`schema_migrations`:
+Forward-only, numbered, applied by `npm run db:migrate`, which records each version in
+`schema_migrations` and runs each file inside a single transaction. Re-running is a no-op.
+
+Tables are grouped by the domain they belong to rather than one file per table — five files keep
+related constraints (a table, its indexes and its unique keys) readable side by side. Each exists in
+two dialects; the runner picks the pair matching `DATABASE_URL`:
 
 ```text
 database/migrations/
-├── 001_create_users.sql
-├── 002_create_services.sql
-├── 003_create_service_counters.sql
-├── 004_create_service_hours.sql
-├── 005_create_queue_settings.sql
-├── 006_create_queues.sql
-├── 007_create_queue_tickets.sql
-├── 008_create_queue_events.sql
-├── 009_create_staff_assignments.sql
-├── 010_create_notifications.sql
-├── 011_create_announcements.sql
-└── 012_create_support_tables.sql
+├── 001_users_and_auth.mysql.sql              ├── 001_users_and_auth.sqlite.sql
+│     users, revoked_tokens, schema_migrations
+├── 002_services_and_counters.mysql.sql       ├── 002_services_and_counters.sqlite.sql
+│     services, service_counters, service_hours, queue_settings
+├── 003_queues_and_tickets.mysql.sql          ├── 003_queues_and_tickets.sqlite.sql
+│     queues, queue_tickets, queue_events
+├── 004_staff_assignments.mysql.sql           ├── 004_staff_assignments.sqlite.sql
+│     staff_assignments
+└── 005_notifications_and_announcements.mysql.sql └── …sqlite.sql
+      notifications, announcements, system_settings
 ```
+
+MySQL is the deployment target. The SQLite variant exists so the suite can run without a database
+server; it reproduces every constraint, using partial unique indexes where MySQL uses stored
+generated columns.
 
 ---
 

@@ -180,46 +180,72 @@ Today's queue per service with counts.
 
 ### `GET /queues/:id` — queue header + counters + first N waiting tickets (staff/admin see customer names).
 
-### `POST /queues/:id/join` → 201 · **customer**
+### Joining — 201 · authenticated
 
-The single most important endpoint. Body is empty (the queue determines the service). Everything below is
-recomputed inside the transaction described in `docs/queue-engine.md` §3.
+Two addresses, one operation. Use whichever identifier you are holding:
 
-```json
-{ "success": true, "message": "You have joined the Finance Office queue",
-  "data": { "ticket": { "id": 402, "ticketNumber": "FIN-023", "sequenceNumber": 23,
-              "status": "waiting", "serviceId": 1, "serviceName": "Finance Office",
-              "serviceCode": "FIN", "queueId": 11, "joinedAt": "2026-09-29T10:42:11.000Z",
-              "counter": null, "estimatedWaitMinutes": 20 },
-            "position": { "position": 5, "peopleAhead": 4, "nowServing": "FIN-018",
-                          "estimatedWaitMinutes": 20, "activeCounters": 2 } } }
+```text
+POST /services/:serviceId/queue/join     ← service card, deep link, QR code
+POST /queues/:queueId/join               ← display board, staff tools
 ```
 
-Failure modes (all 409 unless noted):
+The request body is empty; sending `ticketNumber`, `sequenceNumber` or `status` has no effect, because
+the ticket is generated entirely on the server (§17). Today's queue row is created on first use, so a
+service that nobody has visited yet still works. Everything below is computed inside the transaction
+described in `docs/queue-engine.md` §3.
+
+```json
+{ "success": true, "message": "Ticket FIN-023 issued",
+  "data": { "ticket": { "id": 402, "ticketNumber": "FIN-023", "sequenceNumber": 23,
+              "status": "waiting", "serviceId": 1, "serviceName": "Finance Office",
+              "serviceCode": "FIN", "queueId": 11, "queueDate": "2026-09-29",
+              "joinedAt": "2026-09-29T10:42:11.000Z", "calledAt": null,
+              "counter": null, "estimatedWaitMinutes": 20, "waitedMinutes": 0 },
+            "position": { "ticketId": 402, "ticketNumber": "FIN-023", "status": "waiting",
+                          "position": 5, "peopleAhead": 4, "nowServing": "FIN-018",
+                          "estimatedWaitMinutes": 20, "activeCounters": 2,
+                          "queueStatus": "waiting", "counter": null,
+                          "updatedAt": "2026-09-29T10:42:11.000Z" } } }
+```
+
+Failure modes (all 409 unless noted). Messages name the service, because "this queue is full" is
+useless to someone with four tabs open:
 
 | `code` | `message` |
 | --- | --- |
+| `SERVICE_INACTIVE` | `Finance Office is not currently available.` |
 | `SERVICE_CLOSED` | `Finance Office is currently closed.` |
 | `OUTSIDE_SERVICE_HOURS` | `Finance Office is currently closed. It opens at 8:00 AM.` |
-| `QUEUE_PAUSED` | `This queue is paused and is not accepting new tickets.` |
-| `QUEUE_CLOSED` | `This queue is closed for today.` |
-| `QUEUE_FULL` | `This queue has reached its capacity for today.` |
-| `DUPLICATE_ACTIVE_TICKET` | `You already have an active ticket for this service.` |
-| `REJOIN_NOT_ALLOWED` | `You have already been served by this service today.` |
-| 403 `FORBIDDEN` | staff/admin accounts cannot take tickets |
+| `QUEUE_PAUSED` | `The Finance Office queue is paused and is not accepting new tickets.` |
+| `QUEUE_CLOSED` | `The Finance Office queue is closed for today.` |
+| `QUEUE_FULL` | `The Finance Office queue has reached its capacity for today.` |
+| `DUPLICATE_ACTIVE_TICKET` | `You already have an active ticket (FIN-019) for Finance Office.` |
+| `REJOIN_NOT_ALLOWED` | `You have already been served by Finance Office today.` |
+| 401 `UNAUTHENTICATED` | no bearer token |
+| 404 `NOT_FOUND` | no such service or queue |
+| 429 `RATE_LIMITED` | `joinLimiter` tripped |
 
 ### `GET /queues/:id/status` — the polling endpoint (cheap, 2–5 s)
 
+`GET /queues/:id` and `GET /services/:id/queue` return the identical payload; the latter resolves
+today's queue for you.
+
 ```json
 { "success": true, "message": "Queue status retrieved",
-  "data": { "queueId": 11, "serviceCode": "FIN", "status": "waiting",
-            "nowServing": "FIN-018", "waitingCount": 12, "servingCount": 2,
-            "completedToday": 45, "activeCounters": 3,
+  "data": { "queueId": 11, "serviceId": 1, "serviceName": "Finance Office", "serviceCode": "FIN",
+            "queueDate": "2026-09-29", "status": "waiting",
+            "nowServing": "FIN-018", "currentNumber": 18,
+            "waitingCount": 12, "servingCount": 2, "completedToday": 45,
+            "cancelledToday": 3, "skippedToday": 2, "noShowToday": 1,
+            "ticketsIssuedToday": 30, "activeCounters": 3,
             "averageWaitMinutes": 18, "averageServiceMinutes": 6,
-            "updatedAt": "2026-09-29T10:45:00.000Z" } }
+            "estimatedWaitMinutes": 24, "isAcceptingTickets": true,
+            "capacityRemaining": 70, "updatedAt": "2026-09-29T10:45:00.000Z" } }
 ```
 
-### `PATCH /queues/:id/pause` · `/resume` · `/close` · admin → updated queue.
+### `POST` or `PATCH` `/queues/:id/pause` · `/resume` · `/close` · admin → the updated queue status.
+
+`resume` returns the queue to `waiting`. Both verbs are accepted.
 
 ### `GET /queues/:id/monitor` · staff+admin (§35)
 
@@ -241,22 +267,25 @@ Failure modes (all 409 unless noted):
 
 | Endpoint | Notes |
 | --- | --- |
-| `GET /tickets/my?status=active` | `active` → `waiting,called,serving`; omit for all. Paginated history (§36) |
-| `GET /tickets/:id` | owner, or staff/admin for their service |
-| `GET /tickets/:id/position` | `{ position, peopleAhead, nowServing, estimatedWaitMinutes, status, counter }` — poll target for the ticket screen |
-| `POST /tickets/:id/cancel` | owner only; requires `status='waiting'` and `allowCancellation` |
+| `GET /tickets/my?status=active` | `active` → `waiting,called,serving`; any single status also works; omit for all. Paginated history (§36). `GET /tickets` is the same list |
+| `GET /tickets/active` | the live tickets only, unpaginated — what the customer dashboard opens with |
+| `GET /tickets/:id` | owner, or any staff/admin |
+| `GET /tickets/:id/position` | the poll target for the ticket screen; also what triggers the "your turn is approaching" notification |
+| `GET /tickets/:id/events` | the audit timeline (owner or staff/admin) |
+| `POST /tickets/:id/cancel` | owner (or an admin acting for them); requires `status='waiting'` and `allowCancellation` |
 
 Cancel errors: `403 FORBIDDEN` (not owner) · `409 CANCELLATION_NOT_ALLOWED` ·
-`409 INVALID_STATE_TRANSITION` (`Only a waiting ticket can be cancelled.`).
+`409 INVALID_STATE_TRANSITION` (`Ticket FIN-023 is called and cannot be cancelled.`).
 
 ### Staff
 
 All of these require `staff|admin|super_admin` **and** an active `staff_assignments` row for the service
-(Rule 4) — otherwise `403 NOT_ASSIGNED_TO_SERVICE`.
+(Rule 4) — otherwise `403 NOT_ASSIGNED_TO_SERVICE`. `admin` and `super_admin` supervise every service,
+so the assignment check does not apply to them.
 
 | Endpoint | Body | Effect |
 | --- | --- | --- |
-| `POST /tickets/next` | `{ "serviceId": 1, "counterId": 2 }` | atomically picks the lowest `waiting` sequence and calls it. `404 NO_WAITING_TICKETS` when the queue is empty |
+| `POST /tickets/next` | `{ "serviceId": 1, "counterId": 2 }` | atomically picks the lowest `waiting` sequence and calls it. `counterId` defaults to the caller's own counter. `404 NO_WAITING_TICKETS` when the queue is empty. `POST /tickets/call-next` is the same endpoint |
 | `POST /tickets/:id/call` | `{ "counterId": 2 }` | call a specific waiting ticket |
 | `POST /tickets/:id/recall` | — | re-notify; ticket must already be `called` |
 | `POST /tickets/:id/start` | — | `called → serving` |
@@ -281,6 +310,15 @@ Errors: `409 INVALID_STATE_TRANSITION`, `409 COUNTER_BUSY` (Rule 5), `409 COUNTE
 `404 NOT_FOUND`.
 
 ### `GET /tickets/:id/events` — the audit timeline for a ticket (owner or staff/admin).
+
+```json
+{ "data": [ { "id": 901, "eventType": "joined",  "actorName": "John Doe",
+              "description": "Joined the Finance Office queue", "createdAt": "…" },
+            { "id": 902, "eventType": "called",  "actorName": "Jane Wanjiku",
+              "description": "Called to Finance Counter 2", "createdAt": "…" } ] }
+```
+
+The internal `threshold_notified` marker used to de-duplicate the "approaching" alert is filtered out.
 
 ---
 

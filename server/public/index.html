@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SmartQueue API</title>
+    <style>
+      :root {
+        --ink: #14213d;
+        --muted: #5b6478;
+        --accent: #1d6fe0;
+        --line: #e3e7ef;
+        --bg: #f6f8fc;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        padding: 3rem 1.25rem;
+        font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        background: var(--bg);
+        color: var(--ink);
+        line-height: 1.55;
+      }
+      main { max-width: 46rem; margin: 0 auto; }
+      h1 { margin: 0 0 .25rem; font-size: 1.9rem; letter-spacing: -.02em; }
+      .sub { color: var(--muted); margin: 0 0 2rem; }
+      .card {
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 1.25rem 1.5rem;
+        margin-bottom: 1rem;
+      }
+      h2 { font-size: .8rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 0 0 .75rem; }
+      ul { margin: 0; padding-left: 1.1rem; }
+      li { margin-bottom: .35rem; }
+      code {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: .875rem;
+        background: #eef2f9;
+        padding: .1rem .35rem;
+        border-radius: 4px;
+      }
+      a { color: var(--accent); text-decoration: none; }
+      a:hover { text-decoration: underline; }
+      footer { color: var(--muted); font-size: .85rem; text-align: center; margin-top: 2rem; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>SmartQueue API</h1>
+      <p class="sub">Smart Queue Management System — REST API, version 1.</p>
+
+      <div class="card">
+        <h2>Status</h2>
+        <ul>
+          <li><a href="/api/v1/system/health">/api/v1/system/health</a> — service and database health</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <h2>Public endpoints</h2>
+        <ul>
+          <li><code>GET /api/v1/services</code> — the service catalogue with live queue figures</li>
+          <li><code>GET /api/v1/services/:id/queue</code> — today's queue for one service</li>
+          <li><code>GET /api/v1/queues</code> — every queue for a given date</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <h2>Getting a token</h2>
+        <ul>
+          <li><code>POST /api/v1/auth/register</code></li>
+          <li><code>POST /api/v1/auth/login</code> — returns a bearer token</li>
+          <li>Send it as <code>Authorization: Bearer &lt;token&gt;</code></li>
+        </ul>
+      </div>
+
+      <footer>
+        The mobile client is a separate Flutter application. See <code>docs/api.md</code> for the full reference.
+      </footer>
+    </main>
+  </body>
+</html>
