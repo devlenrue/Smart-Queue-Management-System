@@ -6,48 +6,80 @@
  * so raw exceptions never leak (§63).
  */
 
-export type ErrorCode =
-  // 400
-  | 'BAD_REQUEST'
-  // 401
-  | 'UNAUTHENTICATED'
-  | 'INVALID_CREDENTIALS'
-  | 'TOKEN_EXPIRED'
-  | 'TOKEN_REVOKED'
-  // 403
-  | 'FORBIDDEN'
-  | 'ACCOUNT_INACTIVE'
-  | 'ACCOUNT_SUSPENDED'
-  | 'NOT_ASSIGNED_TO_SERVICE'
-  // 404
-  | 'NOT_FOUND'
-  | 'NO_WAITING_TICKETS'
-  // 409
-  | 'EMAIL_TAKEN'
-  | 'PHONE_TAKEN'
-  | 'SERVICE_CODE_TAKEN'
-  | 'COUNTER_NUMBER_TAKEN'
-  | 'STAFF_ALREADY_ASSIGNED'
-  | 'DUPLICATE_ACTIVE_TICKET'
-  | 'REJOIN_NOT_ALLOWED'
-  | 'SERVICE_CLOSED'
-  | 'SERVICE_INACTIVE'
-  | 'OUTSIDE_SERVICE_HOURS'
-  | 'QUEUE_PAUSED'
-  | 'QUEUE_CLOSED'
-  | 'QUEUE_FULL'
-  | 'INVALID_STATE_TRANSITION'
-  | 'CANCELLATION_NOT_ALLOWED'
-  | 'COUNTER_BUSY'
-  | 'COUNTER_OFFLINE'
-  | 'CONFLICT'
-  // 422
-  | 'VALIDATION_ERROR'
-  // 429
-  | 'RATE_LIMITED'
-  // 500
-  | 'INTERNAL_ERROR'
-  | 'DATABASE_ERROR';
+/**
+ * Every error code the API can return, mapped to the HTTP status it is always
+ * sent with. Keeping this as a runtime object rather than a bare type union
+ * buys three things:
+ *
+ *   1. `docs/api.md` §15.3 is generated from the same list the code throws;
+ *   2. `tests/errors.test.ts` enumerates it, so adding a code without adding a
+ *      negative-path test fails the build;
+ *   3. a code can never be returned with two different statuses, because the
+ *      status is a property of the code.
+ */
+export const ERROR_CATALOGUE = {
+  // 400 — the request itself is malformed.
+  BAD_REQUEST: 400,
+
+  // 401 — who are you?
+  UNAUTHENTICATED: 401,
+  INVALID_CREDENTIALS: 401,
+  TOKEN_EXPIRED: 401,
+  TOKEN_REVOKED: 401,
+
+  // 403 — we know who you are, and you may not.
+  FORBIDDEN: 403,
+  ACCOUNT_INACTIVE: 403,
+  ACCOUNT_SUSPENDED: 403,
+  NOT_ASSIGNED_TO_SERVICE: 403,
+
+  // 404 — no such thing.
+  NOT_FOUND: 404,
+  NO_WAITING_TICKETS: 404,
+
+  // 409 — the request is well formed but conflicts with the current state.
+  EMAIL_TAKEN: 409,
+  PHONE_TAKEN: 409,
+  SERVICE_CODE_TAKEN: 409,
+  COUNTER_NUMBER_TAKEN: 409,
+  STAFF_ALREADY_ASSIGNED: 409,
+  DUPLICATE_ACTIVE_TICKET: 409,
+  REJOIN_NOT_ALLOWED: 409,
+  SERVICE_CLOSED: 409,
+  SERVICE_INACTIVE: 409,
+  OUTSIDE_SERVICE_HOURS: 409,
+  QUEUE_PAUSED: 409,
+  QUEUE_CLOSED: 409,
+  QUEUE_FULL: 409,
+  INVALID_STATE_TRANSITION: 409,
+  CANCELLATION_NOT_ALLOWED: 409,
+  COUNTER_BUSY: 409,
+  COUNTER_OFFLINE: 409,
+  CONFLICT: 409,
+
+  // 413 — body-parser rejected the payload before we ever saw it.
+  PAYLOAD_TOO_LARGE: 413,
+
+  // 422 — well formed, understood, but the values are wrong.
+  VALIDATION_ERROR: 422,
+
+  // 429 — slow down.
+  RATE_LIMITED: 429,
+
+  // 500 — our fault.
+  INTERNAL_ERROR: 500,
+  DATABASE_ERROR: 500,
+} as const;
+
+export type ErrorCode = keyof typeof ERROR_CATALOGUE;
+
+/** The catalogue as a list, for tests and documentation tooling. */
+export const ERROR_CODES = Object.keys(ERROR_CATALOGUE) as ErrorCode[];
+
+/** The one HTTP status a given code is ever returned with. */
+export function statusForCode(code: ErrorCode): number {
+  return ERROR_CATALOGUE[code];
+}
 
 export interface FieldError {
   field: string;

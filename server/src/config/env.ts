@@ -35,6 +35,13 @@ const schema = z.object({
   RATE_LIMIT_WINDOW_MINUTES: z.coerce.number().int().positive().default(15),
   RATE_LIMIT_AUTH_MAX: z.coerce.number().int().positive().default(30),
   RATE_LIMIT_JOIN_MAX: z.coerce.number().int().positive().default(20),
+  // A customer app polling flat out issues ~20 requests a minute (ticket every
+  // 5 s, queue every 10 s, unread count every 30 s) = ~300 per window. The
+  // ceiling is set well above that so the limiter only ever catches abuse.
+  RATE_LIMIT_API_MAX: z.coerce.number().int().positive().default(1000),
+  // Limits are skipped under NODE_ENV=test or the suite would be flaky; the
+  // limiter's own test flips this back on for one file.
+  RATE_LIMIT_IN_TESTS: z.enum(['true', 'false']).default('false'),
 
   QUEUE_DEFAULT_SERVICE_MINUTES: z.coerce.number().int().positive().default(5),
   QUEUE_NOTIFY_THRESHOLD: z.coerce.number().int().positive().default(3),
@@ -129,6 +136,8 @@ export const config = {
     windowMs: raw.RATE_LIMIT_WINDOW_MINUTES * 60 * 1000,
     authMax: raw.RATE_LIMIT_AUTH_MAX,
     joinMax: raw.RATE_LIMIT_JOIN_MAX,
+    apiMax: raw.RATE_LIMIT_API_MAX,
+    enforceInTests: raw.RATE_LIMIT_IN_TESTS === 'true',
   },
 
   queue: {

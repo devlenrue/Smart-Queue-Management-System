@@ -4,6 +4,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import { config } from './config/env';
 import { requestLogger } from './middleware/requestLogger';
+import { apiLimiter } from './middleware/rateLimit';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 import apiRouter from './routes';
 
@@ -40,7 +41,7 @@ export function createApp(): Express {
   // Static: API landing page and the public display board (docs/flutter-app.md §2.4).
   app.use(express.static(path.resolve(__dirname, '../public'), { index: 'index.html' }));
 
-  app.use(API_PREFIX, apiRouter);
+  app.use(API_PREFIX, apiLimiter, apiRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

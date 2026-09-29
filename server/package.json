@@ -16,7 +16,8 @@
     "db:seed": "tsx src/db/cli/seed.ts",
     "db:reset": "tsx src/db/cli/reset.ts",
     "test": "jest --runInBand",
-    "test:watch": "jest --runInBand --watch"
+    "test:watch": "jest --runInBand --watch",
+    "test:coverage": "jest --runInBand --coverage"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
