@@ -162,7 +162,7 @@ Each item is enriched with **live** queue figures (never client-computed):
     "category": "Administration", "averageServiceTime": 5, "dailyCapacity": 200,
     "status": "open",
     "queue": { "queueId": 11, "status": "waiting", "waitingCount": 12,
-               "servingCount": 2, "nowServing": "FIN-018",
+               "servingCount": 2, "completedToday": 18, "nowServing": "FIN-018",
                "estimatedWaitMinutes": 20, "activeCounters": 3,
                "isAcceptingTickets": true, "capacityRemaining": 165 },
     "hoursToday": { "opensAt": "08:00", "closesAt": "17:00", "isOpenNow": true } } ],

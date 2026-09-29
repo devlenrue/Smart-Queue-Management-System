@@ -438,24 +438,58 @@ reaching for a framework-of-frameworks on a project this size.
 **Database.** None.
 
 **Test.** `npm test` green (457) · `npm run test:coverage` green against the thresholds ·
-`flutter analyze && flutter test` on the student's machine · the §85 walkthrough end-to-end.
+`flutter analyze && flutter test` on the student's machine · the §85 walkthrough end-to-end, which
+is now `npm run walkthrough` and is recorded in [`docs/walkthrough.md`](walkthrough.md) — fifteen
+steps, all green against the seeded database.
 
 **Outstanding.** The two new Flutter suites have not been run — the sandbox has no Flutter SDK.
-Phase 9 closes when `flutter test` is green and the §85 walkthrough has been performed against
-MySQL on the marker's machine.
+Phase 9 closes when `flutter test` is green and the walkthrough has been run against MySQL rather
+than the SQLite fallback.
 
 ---
 
-## PHASE 10 — Documentation ☐
+## PHASE 10 — Documentation ◐
 
 **Objective.** A marker can clone, run and understand the project without asking a question.
 
-**Create/finish.** `README.md` (all 14 sections of §76) · `docs/user-guide.md` (one walkthrough per role)
-· `docs/api.md` kept in sync · `docs/architecture.md` diagrams · screenshots in `docs/screenshots/` ·
-`docs/known-limitations.md`.
+**Built.**
 
-**Test.** Follow the README from a clean clone on a fresh machine and confirm every command works as
-written.
+* `README.md` restructured into the sections §76 asks for, in order: status, what it does, features,
+  stack, **requirements**, quick start, **configuration** (every environment variable with its
+  default and what it actually controls), project structure, **API documentation**, roles and demo
+  accounts, testing, **end-to-end walkthrough**, **screenshots**, **known limitations**,
+  **troubleshooting**, design documents, and an academic note.
+* `docs/user-guide.md` — one walkthrough per role, written against the running app. Every screen
+  name, button label and refusal message quoted in it is the one actually on screen; the wording was
+  read out of the widgets rather than remembered.
+* `docs/known-limitations.md` — separated into what §82 ruled out, what was traded deliberately, and
+  what is simply unfinished, because a marker deserves to know which is which. Polled notifications,
+  no WebSocket, manual password reset, single tenant, the SQLite fallback's weaker concurrency
+  story, read-time reporting, fake-backed client tests, and a short list of smaller things.
+* `docs/walkthrough.md` + `server/scripts/walkthrough.sh` (`npm run walkthrough`) — the §85 success
+  criteria as a script rather than a claim. Fifteen steps through documented endpoints against the
+  real database, including the two rules worth watching fail (`DUPLICATE_ACTIVE_TICKET`,
+  `COUNTER_BUSY`) and the 403s that prove ownership isolation and RBAC. The one setting it touches —
+  today's opening hours, so the script runs after 5 p.m. — it restores on exit.
+* `docs/screenshots/README.md` — the shot list. **No screenshots were generated.** A mocked-up image
+  of a screen that has never been rendered is worse than none, so the folder carries twenty
+  described shots with the exact state to put the app in, instead of pictures nobody took.
+* `docs/api.md` §1 — the error-code catalogue and the transport-hardening table (added with Phase 9,
+  listed here because it is what keeps the API document in sync with the code).
+
+**Decisions.**
+
+* **The walkthrough is executable.** A transcript in a document rots the first time an endpoint
+  changes. A script that a marker can run cannot: if it drifts, it fails.
+* **Missing evidence is named, not faked.** Screenshots and the two unrun Flutter suites are listed
+  as outstanding in three places rather than papered over.
+
+**Test.** `npm run dev` then `npm run walkthrough` — fifteen steps, all green, recorded in
+`docs/walkthrough.md`. Both commands the README prints for a smoke test (`/system/health` and a
+login `curl`) were executed exactly as written and corrected where they were wrong.
+
+**Outstanding.** Screenshots (needs a device). A clean-clone dry run on a machine with MySQL and
+Flutter installed — the SQLite path has been dry-run here end to end.
 
 ---
 
@@ -482,4 +516,4 @@ written.
 | 7 Admin | ☑ | `tests/admin.test.ts` (59) · 4 Flutter suites |
 | 8 Reports | ☑ | `tests/reports.test.ts` (63) · `flutter test` 191/191 |
 | 9 Hardening | ◐ | `errors` (46) · `security` (9) · `edge.cases` (30); 2 Flutter suites awaiting a device run |
-| 10 Docs | ☐ | clean-clone dry run |
+| 10 Docs | ◐ | `npm run walkthrough` 15/15 · README smoke commands run as written; screenshots outstanding |

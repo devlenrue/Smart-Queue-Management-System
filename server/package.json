@@ -17,7 +17,8 @@
     "db:reset": "tsx src/db/cli/reset.ts",
     "test": "jest --runInBand",
     "test:watch": "jest --runInBand --watch",
-    "test:coverage": "jest --runInBand --coverage"
+    "test:coverage": "jest --runInBand --coverage",
+    "walkthrough": "bash scripts/walkthrough.sh"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
