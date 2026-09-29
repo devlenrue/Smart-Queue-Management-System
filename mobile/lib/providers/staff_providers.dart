@@ -4,6 +4,7 @@ import '../core/constants/app_constants.dart';
 import '../core/constants/enums.dart';
 import '../core/errors/error_mapper.dart';
 import '../core/network/api_response.dart';
+import '../core/utils/polling.dart';
 import '../models/counter.dart';
 import '../models/queue.dart';
 import '../models/staff_dashboard.dart';
@@ -27,6 +28,7 @@ class StaffDashboardNotifier extends AutoDisposeStreamNotifier<StaffDashboard> {
   Stream<StaffDashboard> build() async* {
     if (!ref.watch(isAuthenticatedProvider)) return;
 
+    final PollClock clock = PollClock(ref.onDispose);
     final StaffRepository repository = ref.watch(staffRepositoryProvider);
     final Duration interval = ref.watch(pollIntervalProvider);
 
@@ -39,7 +41,9 @@ class StaffDashboardNotifier extends AutoDisposeStreamNotifier<StaffDashboard> {
         // A dropped poll must not blank a console someone is working from.
         if (last == null) rethrow;
       }
-      await Future<void>.delayed(interval);
+      // Closing the console stops the clock, which ends the loop here
+      // rather than one tick later.
+      if (!await clock.sleep(interval)) return;
     }
   }
 

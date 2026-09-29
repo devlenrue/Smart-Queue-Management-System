@@ -849,14 +849,14 @@ extension PumpX on WidgetTester {
     await pump();
   }
 
-  /// Takes the screen down and lets the last poll timer fire.
+  /// Takes the screen down and pumps past one poll interval.
   ///
   /// A poll loop that has no terminal state — the staff console keeps
-  /// refreshing all day — is suspended inside `Future.delayed` when the tree
-  /// is disposed. Replacing the tree cancels the subscription; pumping once
-  /// more lets that timer fire, at which point the generator resumes, hits
-  /// its `yield` on a cancelled stream and exits. Without this the test ends
-  /// with a pending timer.
+  /// refreshing all day — sleeps on a `PollClock`, which the provider
+  /// cancels the moment it is disposed. Replacing the tree therefore ends
+  /// the loop on its own; this helper makes that teardown explicit and,
+  /// by pumping a whole interval afterwards, fails right here rather than
+  /// in the framework's end-of-test check if a loop ever leaks again.
   ///
   /// [interval] overrides the wait for a screen that polls on a multiple of
   /// the configured rate — the admin dashboard re-reads every third tick.

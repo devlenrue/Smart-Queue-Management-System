@@ -168,6 +168,7 @@ final AutoDisposeFutureProviderFamily<List<TicketEvent>, int> ticketEventsProvid
 class TicketPositionNotifier extends AutoDisposeFamilyStreamNotifier<TicketPosition, int> {
   @override
   Stream<TicketPosition> build(int ticketId) async* {
+    final PollClock clock = PollClock(ref.onDispose);
     final Duration interval = ref.watch(pollIntervalProvider);
     final repository = ref.watch(ticketRepositoryProvider);
 
@@ -175,7 +176,7 @@ class TicketPositionNotifier extends AutoDisposeFamilyStreamNotifier<TicketPosit
       final TicketPosition position = await repository.position(ticketId);
       yield position;
       if (position.isFinished) return;
-      await Future<void>.delayed(interval);
+      if (!await clock.sleep(interval)) return;
     }
   }
 }
@@ -191,6 +192,7 @@ final AutoDisposeStreamProviderFamily<QueueStatusView, int> queueStatusProvider 
     StreamProvider.autoDispose.family<QueueStatusView, int>((Ref ref, int queueId) {
   final repository = ref.watch(queueRepositoryProvider);
   return pollKeepingLastValue<QueueStatusView>(
+    PollClock(ref.onDispose),
     AppConstants.queuePollInterval,
     () => repository.status(queueId),
   );
@@ -410,6 +412,7 @@ final AutoDisposeStreamProvider<int> unreadCountProvider =
   if (!ref.watch(isAuthenticatedProvider)) return Stream<int>.value(0);
   final repository = ref.watch(notificationRepositoryProvider);
   return pollEvery<int>(
+    PollClock(ref.onDispose),
     AppConstants.unreadPollInterval,
     repository.unreadCount,
     emitErrors: false,

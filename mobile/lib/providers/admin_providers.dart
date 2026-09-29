@@ -4,6 +4,7 @@ import '../core/constants/app_constants.dart';
 import '../core/constants/enums.dart';
 import '../core/errors/error_mapper.dart';
 import '../core/network/api_response.dart';
+import '../core/utils/polling.dart';
 import '../models/admin_dashboard.dart';
 import '../models/announcement.dart';
 import '../models/counter.dart';
@@ -52,6 +53,7 @@ class AdminDashboardNotifier extends AutoDisposeStreamNotifier<AdminDashboard> {
   Stream<AdminDashboard> build() async* {
     if (!ref.watch(isAuthenticatedProvider)) return;
 
+    final PollClock clock = PollClock(ref.onDispose);
     final AdminRepository repository = ref.watch(adminRepositoryProvider);
     final int days = ref.watch(dashboardWindowProvider);
     final Duration interval = ref.watch(adminPollIntervalProvider);
@@ -65,7 +67,7 @@ class AdminDashboardNotifier extends AutoDisposeStreamNotifier<AdminDashboard> {
         // One dropped poll must not blank a board someone is watching.
         if (last == null) rethrow;
       }
-      await Future<void>.delayed(interval);
+      if (!await clock.sleep(interval)) return;
     }
   }
 
@@ -313,7 +315,12 @@ final AutoDisposeFutureProvider<List<QueueStatusView>> adminQueuesProvider =
 class AdminMonitorNotifier extends AutoDisposeFamilyStreamNotifier<QueueMonitor?, int> {
   @override
   Stream<QueueMonitor?> build(int serviceId) async* {
+    final PollClock clock = PollClock(ref.onDispose);
     final Duration interval = ref.watch(pollIntervalProvider);
+    // Read once, up front: `ref` is unusable after the provider is disposed,
+    // and reaching for it inside the loop would throw into the catch below
+    // and start the whole cycle again.
+    final repository = ref.watch(queueRepositoryProvider);
     final List<QueueStatusView> queues = await ref.watch(adminQueuesProvider.future);
 
     QueueStatusView? queue;
@@ -333,12 +340,12 @@ class AdminMonitorNotifier extends AutoDisposeFamilyStreamNotifier<QueueMonitor?
     QueueMonitor? last;
     while (true) {
       try {
-        last = await ref.read(queueRepositoryProvider).monitor(queue.queueId);
+        last = await repository.monitor(queue.queueId);
         yield last;
       } catch (error) {
         if (last == null) rethrow;
       }
-      await Future<void>.delayed(interval);
+      if (!await clock.sleep(interval)) return;
     }
   }
 }

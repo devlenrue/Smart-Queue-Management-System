@@ -86,6 +86,7 @@ flutter analyze         # static analysis
 | `test/core/validators_test.dart` | Client rules match the server's zod schemas |
 | `test/core/error_mapper_test.dart` | Every HTTP status becomes the right `Failure` |
 | `test/core/formatters_test.dart` | Wait times, ordinals and relative dates read well |
+| `test/core/polling_test.dart` | A disposed provider cancels its pending poll instead of leaking a timer |
 | `test/widgets/status_badge_test.dart` | Each status has its own colour, icon and word |
 | `test/features/login_screen_test.dart` | Validation, server errors, field-level 422s |
 | `test/features/register_screen_test.dart` | No role selector; mismatches caught locally |
@@ -107,13 +108,16 @@ involved.
 
 Both back offices poll for as long as they are on screen, so their tests
 finish with `tester.unmountAndDrain(harness)`: that takes the tree down and
-pumps once more so the last `Future.delayed` fires and the generator exits.
-The admin dashboard polls at three times the shared interval, so its tests
-pass that interval in (`unmountAndDrain(harness, interval: …)`). A staff
-action does the same thing indirectly: completing a ticket invalidates the
-console, which starts polling, so those tests end the same way. SnackBars
-need no such help — `ScaffoldMessengerState.dispose` cancels its own
-dismissal timer when the tree goes.
+pumps a full interval, which fails loudly right there if a poll loop ever
+outlives its screen. It normally has nothing to do — every loop sleeps on a
+`PollClock` (`lib/core/utils/polling.dart`) that the provider cancels in
+`ref.onDispose`. The admin dashboard polls at three times the shared
+interval, so its tests pass that interval in
+(`unmountAndDrain(harness, interval: …)`). A staff action does the same
+thing indirectly: completing a ticket refreshes the console, which starts
+polling, so those tests end the same way. SnackBars need no help at all —
+`ScaffoldMessengerState.dispose` cancels its own dismissal timer when the
+tree goes.
 
 ---
 
@@ -173,5 +177,5 @@ There are no websockets and no push notifications — §82 rules both out.
 | Staff console | `GET /dashboard/staff` | 10 s |
 
 The ticket loop stops itself the moment the ticket reaches a terminal state,
-and every polling provider is `autoDispose`, so leaving a screen ends its
-requests.
+and every polling provider is `autoDispose` and sleeps on a `PollClock`, so
+leaving a screen cancels the pending wake-up as well as the requests.

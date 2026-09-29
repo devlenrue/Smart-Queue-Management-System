@@ -38,13 +38,17 @@ void main() {
   });
 
   testWidgets('exposes the status to screen readers', (WidgetTester tester) async {
+    // Disposed inline rather than with `addTearDown`: the framework checks
+    // for leaked semantics handles at the end of the test *body*, before any
+    // tear-down runs, so a deferred dispose is reported as a leak.
     final SemanticsHandle handle = tester.ensureSemantics();
-    addTearDown(handle.dispose);
 
     await tester.pumpWidget(
       host(Builder(builder: (BuildContext c) => StatusBadge.ticket(c, TicketStatus.called))),
     );
     expect(find.bySemanticsLabel('Status: Called'), findsOneWidget);
+
+    handle.dispose();
   });
 
   testWidgets('renders queue, service and counter variants', (WidgetTester tester) async {

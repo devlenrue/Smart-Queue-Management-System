@@ -253,15 +253,25 @@ Admin
 Polling is implemented once, in `core/utils/polling.dart`:
 
 ```dart
-Stream<T> pollEvery<T>(Duration interval, Future<T> Function() fetch) async* {
+Stream<T> pollEvery<T>(PollClock clock, Duration interval, Future<T> Function() fetch) async* {
   while (true) {
     yield await fetch();
-    await Future<void>.delayed(interval);
+    if (!await clock.sleep(interval)) return;   // disposed while asleep
   }
 }
 ```
 
-Riverpod's `autoDispose` stops the timer the moment the screen leaves the tree, so polling never leaks.
+The sleep goes through a `PollClock` rather than `Future.delayed` because a
+delayed future cannot be cancelled. Every loop hands the clock its provider's
+`ref.onDispose`, so closing the screen cancels the pending timer there and
+then and wakes the loop to return — instead of leaving one wake-up scheduled
+for a screen nobody is looking at.
+
+That also covers the case a bare `autoDispose` cannot: an `async*` generator
+only notices that its listener has gone when it reaches a `yield`, and these
+loops deliberately swallow a failed poll so one dropped request does not
+blank a live board. Without the clock, a loop whose read fails after disposal
+skips the yield, sleeps again and polls forever.
 
 **No widget calls Dio directly and no widget contains a business rule** (§69, §83).
 
