@@ -1,27 +1,35 @@
 import { Router } from 'express';
-import { counterController, staffController } from '../controllers/staff.controller';
+import { staffController } from '../controllers/staff.controller';
+import { staffAdminController } from '../controllers/roster.controller';
 import { requireAuth } from '../middleware/auth';
-import { requireStaff } from '../middleware/rbac';
+import { requireAdmin, requireStaff } from '../middleware/rbac';
 import { validate } from '../middleware/validate';
 import { asyncHandler } from '../utils/asyncHandler';
 import { idParamSchema } from '../validators/common.validators';
 import {
-  counterListQuerySchema,
-  counterStatusSchema,
-  staffDashboardQuerySchema,
   staffIdParamSchema,
   staffStatisticsQuerySchema,
   staffTicketsQuerySchema,
 } from '../validators/staff.validators';
+import {
+  assignStaffSchema,
+  createStaffSchema,
+  staffListQuerySchema,
+  unassignStaffSchema,
+  updateStaffSchema,
+} from '../validators/admin.validators';
 
 /**
  * Mounted at /api/v1/staff.
  *
- * Phase 6 covers what a staff member needs about *themselves*; the admin-only
- * roster endpoints (create staff, assign, unassign) arrive with Phase 7.
+ * Two halves. A clerk reads their *own* figures (`:id` may be the literal
+ * `me`); an administrator manages the roster — who exists, and where they are
+ * posted. The roster routes take a numeric id only: "me" is meaningless when
+ * the caller is not the subject.
  */
 const router = Router();
 
+// ----------------------------------------------------------- self-service
 router.get(
   '/:id/statistics',
   requireAuth,
@@ -38,36 +46,45 @@ router.get(
   asyncHandler(staffController.handledTickets),
 );
 
-export default router;
-
-/** Mounted at /api/v1/dashboard. The admin dashboard joins it in Phase 7. */
-export const dashboardRouter = Router();
-dashboardRouter.get(
-  '/staff',
-  requireAuth,
-  requireStaff,
-  validate({ query: staffDashboardQuerySchema }),
-  asyncHandler(staffController.dashboard),
-);
-
-/**
- * Mounted at /api/v1/counters.
- *
- * Only the two operations a counter clerk performs. Counter CRUD belongs to
- * the administrator and is written in Phase 7.
- */
-export const counterRouter = Router();
-counterRouter.get(
+// ------------------------------------------------------------------ roster
+router.get(
   '/',
   requireAuth,
-  requireStaff,
-  validate({ query: counterListQuerySchema }),
-  asyncHandler(counterController.list),
+  requireAdmin,
+  validate({ query: staffListQuerySchema }),
+  asyncHandler(staffAdminController.list),
 );
-counterRouter.patch(
-  '/:id/status',
+
+router.post(
+  '/',
   requireAuth,
-  requireStaff,
-  validate({ params: idParamSchema, body: counterStatusSchema }),
-  asyncHandler(counterController.setStatus),
+  requireAdmin,
+  validate({ body: createStaffSchema }),
+  asyncHandler(staffAdminController.create),
 );
+
+router.put(
+  '/:id',
+  requireAuth,
+  requireAdmin,
+  validate({ params: idParamSchema, body: updateStaffSchema }),
+  asyncHandler(staffAdminController.update),
+);
+
+router.post(
+  '/:id/assign',
+  requireAuth,
+  requireAdmin,
+  validate({ params: idParamSchema, body: assignStaffSchema }),
+  asyncHandler(staffAdminController.assign),
+);
+
+router.post(
+  '/:id/unassign',
+  requireAuth,
+  requireAdmin,
+  validate({ params: idParamSchema, body: unassignStaffSchema }),
+  asyncHandler(staffAdminController.unassign),
+);
+
+export default router;

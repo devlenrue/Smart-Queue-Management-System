@@ -1,5 +1,6 @@
 /**
- * All SQL that touches `users`, `revoked_tokens` and `system_settings`.
+ * All SQL that touches `users` and `revoked_tokens`.
+ * (`system_settings` lives in `settings.repository.ts`.)
  *
  * Every statement is parameterised — there is no string concatenation of user
  * input anywhere in this file (§62). Sort columns come from an allow-list.
@@ -7,7 +8,7 @@
 import { getDb, likeTerm, safeSortColumn, safeSortDirection } from '../db';
 import type { DbConn } from '../db/types';
 import { toSqlDateTime } from '../utils/datetime';
-import type { Role, UserRow, UserStatus } from '../types/domain';
+import type { CounterStatus, Role, UserRow, UserStatus } from '../types/domain';
 
 const SORTABLE: Record<string, string> = {
   createdAt: 'created_at',
@@ -36,6 +37,45 @@ export interface UserListFilters {
   limit: number;
   sort?: string;
   order?: string;
+}
+
+/** Columns `GET /staff` may be ordered by. Anything else falls back to the name. */
+const STAFF_SORTABLE: Record<string, string> = {
+  firstName: 'u.first_name',
+  lastName: 'u.last_name',
+  email: 'u.email',
+  status: 'u.status',
+  createdAt: 'u.created_at',
+  service: 's.code',
+  counter: 'c.counter_number',
+};
+
+export interface StaffListFilters {
+  serviceId?: number;
+  status?: UserStatus;
+  search?: string;
+  /** Only staff with no active posting — the "who can I assign?" filter. */
+  unassigned?: boolean;
+  /** Narrows to one person; used to re-read a row after a write. */
+  staffId?: number;
+  page: number;
+  limit: number;
+  sort?: string;
+  order?: string;
+}
+
+/** A user row widened with the posting they are currently working, if any. */
+export interface StaffRosterRow extends UserRow {
+  assignment_id: number | null;
+  assignment_service_id: number | null;
+  assignment_counter_id: number | null;
+  assigned_at: string | null;
+  assignment_status: 'active' | 'ended' | null;
+  service_name: string | null;
+  service_code: string | null;
+  counter_number: number | null;
+  counter_name: string | null;
+  counter_status: CounterStatus | null;
 }
 
 export const userRepository = {
@@ -158,6 +198,79 @@ export const userRepository = {
   async countByRole(conn: DbConn = getDb()): Promise<Record<string, number>> {
     const rows = await conn.query<{ role: string; n: number }>('SELECT role, COUNT(*) AS n FROM users GROUP BY role');
     return Object.fromEntries(rows.map((row) => [row.role, Number(row.n)]));
+  },
+
+  /** Every id holding a role, for fan-out writes such as publishing an announcement. */
+  async idsByRole(role: Role, status: UserStatus = 'active', conn: DbConn = getDb()): Promise<number[]> {
+    const rows = await conn.query<{ id: number }>('SELECT id FROM users WHERE role = ? AND status = ?', [role, status]);
+    return rows.map((row) => Number(row.id));
+  },
+
+  /**
+   * The staff roster of `GET /staff` (§55): every counter clerk, each with the
+   * posting they are currently working — or nothing, which is precisely the
+   * row an administrator is looking for.
+   *
+   * The assignment is attached through a correlated subquery rather than a
+   * plain `LEFT JOIN … AND status = 'active'` so that a staff member can never
+   * appear twice, whatever historical rows exist.
+   */
+  async listStaff(filters: StaffListFilters, conn: DbConn = getDb()): Promise<{ rows: StaffRosterRow[]; total: number }> {
+    const where: string[] = ["u.role = 'staff'"];
+    const params: unknown[] = [];
+
+    if (filters.staffId) { where.push('u.id = ?'); params.push(filters.staffId); }
+    if (filters.status) { where.push('u.status = ?'); params.push(filters.status); }
+    if (filters.serviceId) { where.push('a.service_id = ?'); params.push(filters.serviceId); }
+    if (filters.unassigned) where.push('a.id IS NULL');
+    if (filters.search?.trim()) {
+      where.push('(u.first_name LIKE ? OR u.last_name LIKE ? OR u.email LIKE ? OR u.phone LIKE ?)');
+      const term = likeTerm(filters.search.trim());
+      params.push(term, term, term, term);
+    }
+
+    const from = `
+      FROM users u
+      LEFT JOIN staff_assignments a
+             ON a.id = (SELECT a2.id FROM staff_assignments a2
+                         WHERE a2.staff_id = u.id AND a2.status = 'active'
+                         ORDER BY a2.assigned_at DESC, a2.id DESC LIMIT 1)
+      LEFT JOIN services         s ON s.id = a.service_id
+      LEFT JOIN service_counters c ON c.id = a.counter_id
+    `;
+    const whereSql = `WHERE ${where.join(' AND ')}`;
+
+    const totals = await conn.query<{ n: number }>(`SELECT COUNT(*) AS n ${from} ${whereSql}`, params);
+    const total = Number(totals[0]?.n ?? 0);
+
+    const column = safeSortColumn(filters.sort, STAFF_SORTABLE, 'u.first_name');
+    const direction = safeSortDirection(filters.order ?? 'asc');
+    const offset = (filters.page - 1) * filters.limit;
+
+    const rows = await conn.query<StaffRosterRow>(
+      `SELECT u.*,
+              a.id         AS assignment_id,
+              a.service_id AS assignment_service_id,
+              a.counter_id AS assignment_counter_id,
+              a.assigned_at,
+              a.status     AS assignment_status,
+              s.name       AS service_name,
+              s.code       AS service_code,
+              c.counter_number,
+              c.name       AS counter_name,
+              c.status     AS counter_status
+       ${from} ${whereSql}
+       ORDER BY ${column} ${direction}, u.id ASC
+       LIMIT ? OFFSET ?`,
+      [...params, filters.limit, offset],
+    );
+    return { rows, total };
+  },
+
+  /** One roster row, for the response of a create/assign/unassign write. */
+  async findStaffRow(staffId: number, conn: DbConn = getDb()): Promise<StaffRosterRow | null> {
+    const { rows } = await this.listStaff({ page: 1, limit: 1, staffId }, conn);
+    return rows[0] ?? null;
   },
 };
 

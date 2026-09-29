@@ -4,10 +4,12 @@ The client for the Smart Queue Management System. It talks to the Express API
 in [`../server`](../server) over REST; it holds no business logic of its own
 and invents no data.
 
-Phase 5 shipped the **authentication and customer** experience; Phase 6 added
-the **staff console**. The admin console (Phase 7) reuses the same core,
-models and widgets. Which app you land in is decided by your role: customers
-start at `/home`, staff and admins at `/staff/console`.
+Phase 5 shipped the **authentication and customer** experience, Phase 6 the
+**staff console**, and Phase 7 the **administrator console** — all three on
+the same core, models and widgets. Which app you land in is decided by your
+role: customers start at `/home`, clerks at `/staff/console`, administrators
+at `/admin/dashboard`. An administrator can also open the staff console, and
+the server lets them work any desk.
 
 ---
 
@@ -62,8 +64,8 @@ All seeded users share the password `Password123!`:
 | Admin | `admin@smartqueue.test` |
 | Super admin | `super@smartqueue.test` |
 
-Signing in as a customer is what Phase 5 covers; the other roles land on the
-customer shell until Phases 7–8 add their consoles.
+Each account lands in its own console. Reports (`/admin/reports`) is the one
+screen still to come — it arrives with Phase 8.
 
 ---
 
@@ -89,15 +91,23 @@ flutter analyze         # static analysis
 | `test/features/staff_queue_test.dart` | The waiting list and the per-row Call |
 | `test/features/staff_actions_test.dart` | Which transitions each ticket state offers, and the skip confirmation |
 | `test/features/staff_reports_test.dart` | Statistics totals and chart, history filters |
+| `test/features/admin_dashboard_test.dart` | Institution figures, both charts, the busiest service, and what the rail shows which role |
+| `test/features/admin_users_test.dart` | Server-side search and filters, suspension, and who is allowed to administer whom |
+| `test/features/admin_staff_test.dart` | The roster and its postings, releasing a clerk, creating one, and counter validation |
+| `test/features/admin_monitor_test.dart` | The read-only live board, the announcement composer's publish warning, and the settings editor |
 
-Widget tests run against fakes of the six repositories
+Widget tests run against fakes of the seven repositories
 (`test/helpers/test_harness.dart`), so no HTTP and no platform channels are
 involved.
 
-The staff console polls for as long as it is on screen, so its tests finish
-with `tester.unmountAndDrain(harness)`: that takes the tree down and pumps
-once more so the last `Future.delayed` fires and the generator exits. Without
-it the test would end with a timer still pending.
+Both back offices poll for as long as they are on screen, so their tests
+finish with `tester.unmountAndDrain(harness)`: that takes the tree down and
+pumps once more so the last `Future.delayed` fires and the generator exits.
+The admin dashboard polls at three times the shared interval, so its tests
+pass that interval in (`unmountAndDrain(harness, interval: …)`). A test that
+asserts a confirmation message ends with `tester.drainSnackBars()` for the
+same reason — the messenger's dismissal timer would otherwise still be
+pending when the tree comes down.
 
 ---
 

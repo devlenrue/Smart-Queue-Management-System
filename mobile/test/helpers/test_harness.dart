@@ -10,22 +10,28 @@ import 'package:smartqueue/core/network/api_response.dart';
 import 'package:smartqueue/core/storage/prefs_storage.dart';
 import 'package:smartqueue/core/storage/secure_storage.dart';
 import 'package:smartqueue/core/theme/app_theme.dart';
+import 'package:smartqueue/models/admin_dashboard.dart';
 import 'package:smartqueue/models/announcement.dart';
 import 'package:smartqueue/models/counter.dart';
 import 'package:smartqueue/models/notification.dart';
 import 'package:smartqueue/models/queue.dart';
 import 'package:smartqueue/models/service.dart';
 import 'package:smartqueue/models/staff_dashboard.dart';
+import 'package:smartqueue/models/staff_member.dart';
 import 'package:smartqueue/models/staff_statistics.dart';
 import 'package:smartqueue/models/ticket.dart';
+import 'package:smartqueue/models/system_setting.dart';
 import 'package:smartqueue/models/user.dart';
+import 'package:smartqueue/models/user_detail.dart';
 import 'package:smartqueue/providers/infrastructure_providers.dart';
+import 'package:smartqueue/repositories/admin_repository.dart';
 import 'package:smartqueue/repositories/auth_repository.dart';
 import 'package:smartqueue/repositories/notification_repository.dart';
 import 'package:smartqueue/repositories/queue_repository.dart';
 import 'package:smartqueue/repositories/service_repository.dart';
 import 'package:smartqueue/repositories/staff_repository.dart';
 import 'package:smartqueue/repositories/ticket_repository.dart';
+import 'package:smartqueue/services/admin_api.dart';
 import 'package:smartqueue/services/auth_api.dart';
 import 'package:smartqueue/services/notification_api.dart';
 import 'package:smartqueue/services/queue_api.dart';
@@ -111,6 +117,7 @@ class FakeServiceRepository extends ServiceRepository {
   List<String> categoryList = const <String>['Finance', 'Records'];
   Object? failure;
   String? lastSearch;
+  String? lastStatus;
   int listCalls = 0;
 
   @override
@@ -119,9 +126,11 @@ class FakeServiceRepository extends ServiceRepository {
     int limit = 20,
     String? search,
     String? category,
+    String? status,
   }) async {
     listCalls++;
     lastSearch = search;
+    lastStatus = status;
     if (failure != null) throw failure!;
 
     final List<Service> filtered = services.where((Service s) {
@@ -129,7 +138,8 @@ class FakeServiceRepository extends ServiceRepository {
           search.isEmpty ||
           s.name.toLowerCase().contains(search.toLowerCase());
       final bool matchesCategory = category == null || s.category == category;
-      return matchesSearch && matchesCategory;
+      final bool matchesStatus = status == null || s.status.name == status;
+      return matchesSearch && matchesCategory && matchesStatus;
     }).toList(growable: false);
 
     return Paged<Service>(
@@ -234,6 +244,17 @@ class FakeQueueRepository extends QueueRepository {
   int joinCalls = 0;
   int? joinedServiceId;
   Ticket joinedTicket = sampleTicket();
+
+  /// What the admin queue monitor reads: one row per live queue.
+  List<QueueStatusView> queueList = <QueueStatusView>[sampleQueueStatus()];
+
+  @override
+  Future<List<QueueStatusView>> list({String? date, int? serviceId, String? status}) async =>
+      serviceId == null
+          ? queueList
+          : queueList
+              .where((QueueStatusView q) => q.serviceId == serviceId)
+              .toList(growable: false);
 
   @override
   Future<QueueStatusView> status(int queueId) async => sampleQueueStatus();
@@ -419,6 +440,330 @@ class FakeStaffRepository extends StaffRepository {
 
 /// Everything a widget test needs, created together so no test forgets one
 /// and falls through to a real platform channel.
+/// The administrator console's data source.
+///
+/// Records what it was asked for — the filters, the ids, the order of the
+/// writes — so a test can assert that a screen sent the right request
+/// rather than only that it rendered the answer.
+class FakeAdminRepository extends AdminRepository {
+  FakeAdminRepository() : super(AdminApi(_idleClient()));
+
+  AdminDashboard dashboardValue = sampleAdminDashboard();
+  List<User> userList = <User>[];
+  UserDetail? userDetailValue;
+  List<StaffMember> staffList = <StaffMember>[];
+  List<ManagedAnnouncement> announcementList = <ManagedAnnouncement>[];
+  List<SystemSetting> settingsList = <SystemSetting>[];
+
+  Object? dashboardFailure;
+  Object? actionFailure;
+
+  int dashboardCalls = 0;
+  int userCalls = 0;
+  int staffCalls = 0;
+  String? lastUserSearch;
+  UserRole? lastUserRole;
+  UserStatus? lastUserStatus;
+  String? lastStaffSearch;
+  bool? lastUnassignedOnly;
+  final List<String> writes = <String>[];
+
+  @override
+  Future<AdminDashboard> dashboard({String? date, int? days}) async {
+    dashboardCalls++;
+    if (dashboardFailure != null) throw dashboardFailure!;
+    return dashboardValue;
+  }
+
+  @override
+  Future<Paged<User>> users({
+    int page = 1,
+    int limit = 20,
+    String? search,
+    UserRole? role,
+    UserStatus? status,
+  }) async {
+    userCalls++;
+    lastUserSearch = search;
+    lastUserRole = role;
+    lastUserStatus = status;
+
+    final List<User> filtered = userList.where((User user) {
+      final bool matchesText = search == null ||
+          search.isEmpty ||
+          user.fullName.toLowerCase().contains(search.toLowerCase());
+      return matchesText && (role == null || user.role == role) &&
+          (status == null || user.status == status);
+    }).toList(growable: false);
+
+    return Paged<User>(
+      items: filtered,
+      meta: PageMeta(page: page, limit: limit, total: filtered.length, totalPages: 1),
+    );
+  }
+
+  @override
+  Future<UserDetail> user(int id) async {
+    if (userDetailValue != null) return userDetailValue!;
+    return sampleUserDetail(user: userList.firstWhere((User u) => u.id == id, orElse: sampleUser));
+  }
+
+  @override
+  Future<User> setUserStatus(int id, UserStatus status) async {
+    writes.add('user:$id:status:${status.name}');
+    if (actionFailure != null) throw actionFailure!;
+    return sampleUser(id: id);
+  }
+
+  @override
+  Future<User> setUserRole(int id, UserRole role) async {
+    writes.add('user:$id:role:${role.wire}');
+    if (actionFailure != null) throw actionFailure!;
+    return sampleUser(id: id, role: role);
+  }
+
+  @override
+  Future<void> deleteUser(int id) async {
+    writes.add('user:$id:delete');
+    if (actionFailure != null) throw actionFailure!;
+  }
+
+  @override
+  Future<Paged<StaffMember>> staff({
+    int page = 1,
+    int limit = 20,
+    String? search,
+    int? serviceId,
+    UserStatus? status,
+    bool unassigned = false,
+  }) async {
+    staffCalls++;
+    lastStaffSearch = search;
+    lastUnassignedOnly = unassigned;
+
+    final List<StaffMember> filtered = staffList.where((StaffMember member) {
+      final bool matchesText = search == null ||
+          search.isEmpty ||
+          member.fullName.toLowerCase().contains(search.toLowerCase());
+      final bool matchesPosting = !unassigned || !member.isPosted;
+      return matchesText && matchesPosting && (status == null || member.status == status);
+    }).toList(growable: false);
+
+    return Paged<StaffMember>(
+      items: filtered,
+      meta: PageMeta(page: page, limit: limit, total: filtered.length, totalPages: 1),
+    );
+  }
+
+  @override
+  Future<StaffMember> createStaff({
+    required String firstName,
+    required String lastName,
+    required String email,
+    required String phone,
+    required String password,
+    int? serviceId,
+    int? counterId,
+  }) async {
+    writes.add('staff:create:$email:${counterId ?? '-'}');
+    if (actionFailure != null) throw actionFailure!;
+    return sampleStaffMember(id: 99, firstName: firstName, lastName: lastName, email: email);
+  }
+
+  @override
+  Future<StaffMember> updateStaff(
+    int id, {
+    String? firstName,
+    String? lastName,
+    String? phone,
+    UserStatus? status,
+  }) async {
+    writes.add('staff:$id:update');
+    if (actionFailure != null) throw actionFailure!;
+    return sampleStaffMember(id: id);
+  }
+
+  @override
+  Future<StaffMember> assignStaff(int id, {required int counterId}) async {
+    writes.add('staff:$id:assign:$counterId');
+    if (actionFailure != null) throw actionFailure!;
+    return sampleStaffMember(id: id);
+  }
+
+  @override
+  Future<StaffMember> unassignStaff(int id) async {
+    writes.add('staff:$id:unassign');
+    if (actionFailure != null) throw actionFailure!;
+    return sampleStaffMember(id: id, posted: false);
+  }
+
+  @override
+  Future<ServiceCounter> createCounter({
+    required int serviceId,
+    required int counterNumber,
+    String? name,
+    int? staffId,
+  }) async {
+    writes.add('counter:create:$serviceId:$counterNumber');
+    if (actionFailure != null) throw actionFailure!;
+    return sampleServiceCounter(id: 90, counterNumber: counterNumber);
+  }
+
+  @override
+  Future<ServiceCounter> updateCounter(
+    int id, {
+    int? counterNumber,
+    String? name,
+    CounterStatus? status,
+  }) async {
+    writes.add('counter:$id:update');
+    if (actionFailure != null) throw actionFailure!;
+    return sampleServiceCounter(id: id);
+  }
+
+  @override
+  Future<ServiceCounter> assignCounter(int id, {required int staffId}) async {
+    writes.add('counter:$id:assign:$staffId');
+    if (actionFailure != null) throw actionFailure!;
+    return sampleServiceCounter(id: id);
+  }
+
+  @override
+  Future<ServiceCounter> clearCounter(int id) async {
+    writes.add('counter:$id:clear');
+    if (actionFailure != null) throw actionFailure!;
+    return sampleServiceCounter(id: id, staffId: null, staffName: null);
+  }
+
+  @override
+  Future<void> deleteCounter(int id) async {
+    writes.add('counter:$id:delete');
+    if (actionFailure != null) throw actionFailure!;
+  }
+
+  @override
+  Future<Service> createService(Map<String, dynamic> body) async {
+    writes.add('service:create:${body['code']}');
+    if (actionFailure != null) throw actionFailure!;
+    return sampleService();
+  }
+
+  @override
+  Future<Service> updateService(int id, Map<String, dynamic> body) async {
+    writes.add('service:$id:update');
+    if (actionFailure != null) throw actionFailure!;
+    return sampleService(id: id);
+  }
+
+  @override
+  Future<void> deleteService(int id) async {
+    writes.add('service:$id:delete');
+    if (actionFailure != null) throw actionFailure!;
+  }
+
+  @override
+  Future<QueueSettings> updateServiceSettings(int id, Map<String, dynamic> body) async {
+    writes.add('service:$id:settings');
+    if (actionFailure != null) throw actionFailure!;
+    return const QueueSettings(
+      maxQueueSize: 100,
+      allowCancellation: true,
+      allowRejoin: true,
+      notificationThreshold: 3,
+      estimatedServiceTime: 5,
+    );
+  }
+
+  @override
+  Future<List<ServiceHours>> updateServiceHours(
+    int id,
+    List<Map<String, dynamic>> hours,
+  ) async {
+    writes.add('service:$id:hours:${hours.length}');
+    if (actionFailure != null) throw actionFailure!;
+    return const <ServiceHours>[];
+  }
+
+  @override
+  Future<Paged<ManagedAnnouncement>> announcements({
+    int page = 1,
+    int limit = 20,
+    AnnouncementStatus? status,
+    int? serviceId,
+    String? search,
+  }) async {
+    final List<ManagedAnnouncement> filtered = status == null
+        ? announcementList
+        : announcementList
+            .where((ManagedAnnouncement a) => a.status == status)
+            .toList(growable: false);
+    return Paged<ManagedAnnouncement>(
+      items: filtered,
+      meta: PageMeta(page: page, limit: limit, total: filtered.length, totalPages: 1),
+    );
+  }
+
+  @override
+  Future<ManagedAnnouncement> createAnnouncement({
+    required String title,
+    required String content,
+    int? serviceId,
+    String? expiresAt,
+    bool publishNow = false,
+  }) async {
+    writes.add('announcement:create:${publishNow ? 'published' : 'draft'}');
+    if (actionFailure != null) throw actionFailure!;
+    return sampleManagedAnnouncement(
+      title: title,
+      status: publishNow ? AnnouncementStatus.published : AnnouncementStatus.draft,
+    );
+  }
+
+  @override
+  Future<ManagedAnnouncement> updateAnnouncement(
+    int id, {
+    String? title,
+    String? content,
+    int? serviceId,
+    bool clearService = false,
+    String? expiresAt,
+  }) async {
+    writes.add('announcement:$id:update');
+    if (actionFailure != null) throw actionFailure!;
+    return sampleManagedAnnouncement(id: id, title: title ?? 'Notice');
+  }
+
+  @override
+  Future<ManagedAnnouncement> publishAnnouncement(int id) async {
+    writes.add('announcement:$id:publish');
+    if (actionFailure != null) throw actionFailure!;
+    return sampleManagedAnnouncement(id: id, status: AnnouncementStatus.published);
+  }
+
+  @override
+  Future<ManagedAnnouncement> archiveAnnouncement(int id) async {
+    writes.add('announcement:$id:archive');
+    if (actionFailure != null) throw actionFailure!;
+    return sampleManagedAnnouncement(id: id, status: AnnouncementStatus.archived);
+  }
+
+  @override
+  Future<void> deleteAnnouncement(int id) async {
+    writes.add('announcement:$id:delete');
+    if (actionFailure != null) throw actionFailure!;
+  }
+
+  @override
+  Future<List<SystemSetting>> settings() async => settingsList;
+
+  @override
+  Future<List<SystemSetting>> saveSettings(Map<String, Object?> values) async {
+    writes.add('settings:${values.keys.join(',')}');
+    if (actionFailure != null) throw actionFailure!;
+    return settingsList;
+  }
+}
+
 class TestHarness {
   TestHarness({required this.prefs});
 
@@ -430,11 +775,16 @@ class TestHarness {
   final FakeQueueRepository queues = FakeQueueRepository();
   final FakeNotificationRepository notifications = FakeNotificationRepository();
   final FakeStaffRepository staff = FakeStaffRepository();
+  final FakeAdminRepository admin = FakeAdminRepository();
 
   /// Puts somebody in the session, so screens behind the auth guard build.
-  void signIn({UserRole role = UserRole.customer, String firstName = 'Jane'}) {
+  void signIn({
+    UserRole role = UserRole.customer,
+    String firstName = 'Jane',
+    int id = 7,
+  }) {
     auth.sessionUser = sampleUser(
-      id: 7,
+      id: id,
       firstName: firstName,
       lastName: 'Wanjiku',
       email: 'jane.staff@smartqueue.test',
@@ -456,6 +806,7 @@ class TestHarness {
         queueRepositoryProvider.overrideWithValue(queues),
         notificationRepositoryProvider.overrideWithValue(notifications),
         staffRepositoryProvider.overrideWithValue(staff),
+        adminRepositoryProvider.overrideWithValue(admin),
       ];
 
   /// Wraps a screen in the minimum real app scaffolding: a ProviderScope
@@ -503,10 +854,23 @@ extension PumpX on WidgetTester {
   /// more lets that timer fire, at which point the generator resumes, hits
   /// its `yield` on a cancelled stream and exits. Without this the test ends
   /// with a pending timer.
-  Future<void> unmountAndDrain(TestHarness harness) async {
+  ///
+  /// [interval] overrides the wait for a screen that polls on a multiple of
+  /// the configured rate — the admin dashboard re-reads every third tick.
+  Future<void> unmountAndDrain(TestHarness harness, {Duration? interval}) async {
     await pumpWidget(const SizedBox.shrink());
-    await pump(harness.prefs.readPollInterval());
+    await pump(interval ?? harness.prefs.readPollInterval());
     await pump();
+  }
+
+  /// Lets a SnackBar finish and time out.
+  ///
+  /// A test that asserts a confirmation message must call this before it
+  /// ends, or the messenger's four-second dismissal timer is still pending
+  /// when the tree is torn down, and the test fails on that instead of on
+  /// anything it was checking.
+  Future<void> drainSnackBars() async {
+    await pumpAndSettle(const Duration(seconds: 6));
   }
 
   /// Runs the polling loop forward until it stops on its own.
@@ -802,5 +1166,163 @@ TicketActionResult sampleActionResult({
     waitingCount: 3,
     completedToday: 10,
     nowServing: ticketNumber,
+  );
+}
+
+// ── admin sample data (Phase 7) ───────────────────────────────────────────
+
+AdminDashboard sampleAdminDashboard({
+  int waiting = 34,
+  int served = 23,
+  int staffOnDuty = 5,
+  List<AdminServiceRow>? byService,
+  List<ServedPoint>? servedPerDay,
+  StatusBreakdown? breakdown,
+}) {
+  return AdminDashboard(
+    today: '2026-09-29',
+    activeServices: 5,
+    activeQueues: 5,
+    activeCounters: 5,
+    staffOnDuty: staffOnDuty,
+    customersWaiting: waiting,
+    customersServedToday: served,
+    averageWaitMinutes: 15.8,
+    averageServiceMinutes: 8.9,
+    ticketsIssuedToday: 65,
+    cancelledToday: 2,
+    skippedToday: 0,
+    noShowToday: 1,
+    byService: byService ??
+        const <AdminServiceRow>[
+          AdminServiceRow(
+            serviceId: 1,
+            name: 'Finance Office',
+            code: 'FIN',
+            status: ServiceStatus.open,
+            issued: 13,
+            waiting: 6,
+            serving: 2,
+            completed: 3,
+            cancelled: 1,
+            averageWaitMinutes: 18.5,
+          ),
+          AdminServiceRow(
+            serviceId: 2,
+            name: 'Registrar',
+            code: 'REG',
+            status: ServiceStatus.open,
+            issued: 14,
+            waiting: 8,
+            serving: 1,
+            completed: 5,
+            cancelled: 0,
+            averageWaitMinutes: 12.0,
+          ),
+        ],
+    servedPerDay: servedPerDay ??
+        const <ServedPoint>[
+          ServedPoint(date: '2026-09-27', label: 'Sunday', served: 63),
+          ServedPoint(date: '2026-09-28', label: 'Monday', served: 64),
+          ServedPoint(date: '2026-09-29', label: 'Tuesday', served: 23),
+        ],
+    statusBreakdown: breakdown ??
+        const StatusBreakdown(
+          waiting: 34,
+          serving: 5,
+          completed: 23,
+          cancelled: 2,
+          skipped: 0,
+          noShow: 1,
+        ),
+  );
+}
+
+StaffMember sampleStaffMember({
+  int id = 4,
+  String firstName = 'Jane',
+  String lastName = 'Wanjiku',
+  String email = 'jane.staff@smartqueue.test',
+  UserStatus status = UserStatus.active,
+  bool posted = true,
+  int counterId = 2,
+  int counterNumber = 2,
+  String serviceName = 'Finance Office',
+  CounterStatus counterStatus = CounterStatus.available,
+}) {
+  return StaffMember(
+    id: id,
+    firstName: firstName,
+    lastName: lastName,
+    fullName: '$firstName $lastName',
+    email: email,
+    phone: '+254700000011',
+    role: UserRole.staff,
+    status: status,
+    createdAt: '2026-01-15T08:00:00.000Z',
+    posting: posted
+        ? RosterPosting(
+            assignmentId: id,
+            serviceId: 1,
+            serviceName: serviceName,
+            serviceCode: 'FIN',
+            counterId: counterId,
+            counterNumber: counterNumber,
+            counterName: '$serviceName Counter $counterNumber',
+            counterStatus: counterStatus,
+            assignedAt: '2026-09-01T08:00:00.000Z',
+          )
+        : null,
+  );
+}
+
+UserDetail sampleUserDetail({User? user, UserActivity? activity, RosterPosting? posting}) {
+  return UserDetail(
+    user: user ?? sampleUser(id: 9),
+    activity: activity ??
+        const UserActivity(
+          totalTickets: 15,
+          completed: 11,
+          cancelled: 2,
+          noShow: 0,
+          active: 2,
+          lastActivityAt: '2026-09-29T06:01:18.000Z',
+        ),
+    posting: posting,
+    updatedAt: '2026-09-29T06:01:18.000Z',
+  );
+}
+
+ManagedAnnouncement sampleManagedAnnouncement({
+  int id = 1,
+  String title = 'System maintenance',
+  AnnouncementStatus status = AnnouncementStatus.draft,
+  int? serviceId,
+}) {
+  return ManagedAnnouncement(
+    announcement: Announcement(
+      id: id,
+      title: title,
+      content: 'The portal will be unavailable on Saturday evening.',
+      isGlobal: serviceId == null,
+      serviceId: serviceId,
+      serviceName: serviceId == null ? null : 'Finance Office',
+      authorName: 'Admin User',
+      publishedAt: status == AnnouncementStatus.published ? '2026-09-29T08:00:00.000Z' : null,
+    ),
+    status: status,
+  );
+}
+
+SystemSetting sampleSystemSetting({
+  String key = 'institution_name',
+  String value = 'University Service Centre',
+  String? description = 'Shown on the display board',
+}) {
+  return SystemSetting(
+    key: key,
+    value: value,
+    description: description,
+    updatedAt: '2026-09-29T08:00:00.000Z',
   );
 }

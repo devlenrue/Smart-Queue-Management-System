@@ -94,6 +94,25 @@ export const assignmentRepository = {
     return result.affectedRows;
   },
 
+  /** Who is currently posted to this counter, if anybody. */
+  async findActiveByCounter(counterId: number, conn: DbConn = getDb()): Promise<AssignmentDetailRow | null> {
+    const rows = await conn.query<AssignmentDetailRow>(
+      `${DETAIL_SELECT} WHERE a.counter_id = ? AND a.status = 'active' ORDER BY a.assigned_at DESC LIMIT 1`,
+      [counterId],
+    );
+    return rows[0] ?? null;
+  },
+
+  /** Ends every active posting that points at a counter (it is being freed or deleted). */
+  async endAllForCounter(counterId: number, conn: DbConn = getDb()): Promise<number> {
+    const stamp = toSqlDateTime();
+    const result = await conn.execute(
+      "UPDATE staff_assignments SET status = 'ended', unassigned_at = ?, updated_at = ? WHERE counter_id = ? AND status = 'active'",
+      [stamp, stamp, counterId],
+    );
+    return result.affectedRows;
+  },
+
   async endById(id: number, conn: DbConn = getDb()): Promise<number> {
     const stamp = toSqlDateTime();
     const result = await conn.execute(

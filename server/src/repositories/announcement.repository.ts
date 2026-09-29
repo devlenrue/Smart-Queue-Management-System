@@ -1,5 +1,5 @@
 /** SQL for `announcements`. Phase 5 needs reads; Phase 7 adds the composer. */
-import { getDb } from '../db';
+import { getDb, likeTerm } from '../db';
 import type { DbConn } from '../db/types';
 import { toSqlDateTime } from '../utils/datetime';
 import type { AnnouncementStatus } from '../types/domain';
@@ -74,5 +74,104 @@ export const announcementRepository = {
     );
 
     return { rows, total: Number(totals[0]?.n ?? 0) };
+  },
+
+  // -------------------------------------------------------------------------
+  // Administrator side (Phase 7) — drafts included, nothing hidden
+  // -------------------------------------------------------------------------
+
+  /**
+   * Every announcement, whatever its status, for the composer's list.
+   * `serviceId` here means "attached to this service", not "visible to it",
+   * which is why it is a plain equality rather than the `IS NULL OR =` of
+   * `listPublished`.
+   */
+  async listAll(
+    filters: { status?: AnnouncementStatus; serviceId?: number; search?: string; page: number; limit: number },
+    conn: DbConn = getDb(),
+  ): Promise<{ rows: AnnouncementDetailRow[]; total: number }> {
+    const where: string[] = [];
+    const params: unknown[] = [];
+
+    if (filters.status) { where.push('a.status = ?'); params.push(filters.status); }
+    if (filters.serviceId !== undefined) { where.push('a.service_id = ?'); params.push(filters.serviceId); }
+    if (filters.search?.trim()) {
+      where.push('(a.title LIKE ? OR a.content LIKE ?)');
+      const term = likeTerm(filters.search.trim());
+      params.push(term, term);
+    }
+
+    const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
+    const totals = await conn.query<{ n: number }>(`SELECT COUNT(*) AS n FROM announcements a ${whereSql}`, params);
+
+    const offset = (filters.page - 1) * filters.limit;
+    const rows = await conn.query<AnnouncementDetailRow>(
+      `${DETAIL_SELECT} ${whereSql} ORDER BY COALESCE(a.published_at, a.created_at) DESC, a.id DESC LIMIT ? OFFSET ?`,
+      [...params, filters.limit, offset],
+    );
+
+    return { rows, total: Number(totals[0]?.n ?? 0) };
+  },
+
+  async create(
+    input: {
+      title: string;
+      content: string;
+      serviceId?: number | null;
+      createdBy: number | null;
+      expiresAt?: string | null;
+      status: AnnouncementStatus;
+      publishedAt?: string | null;
+    },
+    conn: DbConn = getDb(),
+  ): Promise<number> {
+    const stamp = toSqlDateTime();
+    const result = await conn.execute(
+      `INSERT INTO announcements (title, content, service_id, created_by, published_at, expires_at, status, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        input.title,
+        input.content,
+        input.serviceId ?? null,
+        input.createdBy,
+        input.publishedAt ?? null,
+        input.expiresAt ?? null,
+        input.status,
+        stamp,
+        stamp,
+      ],
+    );
+    return result.insertId;
+  },
+
+  async update(
+    id: number,
+    input: Partial<{
+      title: string;
+      content: string;
+      serviceId: number | null;
+      expiresAt: string | null;
+      status: AnnouncementStatus;
+      publishedAt: string | null;
+    }>,
+    conn: DbConn = getDb(),
+  ): Promise<void> {
+    const sets: string[] = [];
+    const params: unknown[] = [];
+    if (input.title !== undefined) { sets.push('title = ?'); params.push(input.title); }
+    if (input.content !== undefined) { sets.push('content = ?'); params.push(input.content); }
+    if (input.serviceId !== undefined) { sets.push('service_id = ?'); params.push(input.serviceId); }
+    if (input.expiresAt !== undefined) { sets.push('expires_at = ?'); params.push(input.expiresAt); }
+    if (input.status !== undefined) { sets.push('status = ?'); params.push(input.status); }
+    if (input.publishedAt !== undefined) { sets.push('published_at = ?'); params.push(input.publishedAt); }
+    if (sets.length === 0) return;
+    sets.push('updated_at = ?');
+    params.push(toSqlDateTime(), id);
+    await conn.execute(`UPDATE announcements SET ${sets.join(', ')} WHERE id = ?`, params);
+  },
+
+  async remove(id: number, conn: DbConn = getDb()): Promise<number> {
+    const result = await conn.execute('DELETE FROM announcements WHERE id = ?', [id]);
+    return result.affectedRows;
   },
 };

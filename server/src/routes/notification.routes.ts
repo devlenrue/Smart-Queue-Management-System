@@ -1,10 +1,10 @@
 import { Router } from 'express';
-import { announcementController, notificationController } from '../controllers/notification.controller';
+import { notificationController } from '../controllers/notification.controller';
 import { requireAuth } from '../middleware/auth';
 import { validate } from '../middleware/validate';
 import { asyncHandler } from '../utils/asyncHandler';
 import { idParamSchema } from '../validators/common.validators';
-import { announcementListQuerySchema, notificationListQuerySchema } from '../validators/notification.validators';
+import { notificationListQuerySchema } from '../validators/notification.validators';
 
 const router = Router();
 
@@ -23,11 +23,5 @@ router.post('/:id/read', ...markOne);
 
 export default router;
 
-/** Mounted at /api/v1/announcements. Reads are public; Phase 7 adds the composer. */
-export const announcementRouter = Router();
-announcementRouter.get(
-  '/',
-  validate({ query: announcementListQuerySchema }),
-  asyncHandler(announcementController.list),
-);
-announcementRouter.get('/:id', validate({ params: idParamSchema }), asyncHandler(announcementController.getOne));
+// Announcements moved to their own `announcement.routes.ts` in Phase 7, when
+// the composer joined the two public reads.

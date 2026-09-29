@@ -1,24 +1,29 @@
 import { Router } from 'express';
-import healthRoutes from './health.routes';
+import systemRoutes from './system.routes';
 import authRoutes, { profileRouter } from './auth.routes';
 import serviceRoutes from './service.routes';
 import queueRoutes from './queue.routes';
 import ticketRoutes from './ticket.routes';
-import notificationRoutes, { announcementRouter } from './notification.routes';
-import staffRoutes, { counterRouter, dashboardRouter } from './staff.routes';
+import notificationRoutes from './notification.routes';
+import announcementRoutes from './announcement.routes';
+import counterRoutes from './counter.routes';
+import staffRoutes from './staff.routes';
+import userRoutes from './user.routes';
+import dashboardRoutes from './dashboard.routes';
 
 const router = Router();
 
-router.use('/system', healthRoutes);
+router.use('/system', systemRoutes);
 router.use('/auth', authRoutes);
 router.use('/profile', profileRouter);
 router.use('/services', serviceRoutes);
 router.use('/queues', queueRoutes);
 router.use('/tickets', ticketRoutes);
 router.use('/notifications', notificationRoutes);
-router.use('/announcements', announcementRouter);
-router.use('/counters', counterRouter);
+router.use('/announcements', announcementRoutes);
+router.use('/counters', counterRoutes);
 router.use('/staff', staffRoutes);
-router.use('/dashboard', dashboardRouter);
+router.use('/users', userRoutes);
+router.use('/dashboard', dashboardRoutes);
 
 export default router;

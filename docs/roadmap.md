@@ -252,20 +252,62 @@ Four Flutter suites: `staff_dashboard_test`, `staff_queue_test`, `staff_actions_
 
 ---
 
-## PHASE 7 — Admin ☐
+## PHASE 7 — Admin ◐
 
 **Objective.** Services, counters, staff, users, queue monitoring and announcements.
 
-**Create.** repositories/services/controllers for `staff`, `user`, `announcement`, `counter` admin paths;
-`GET /dashboard/admin`; `providers/admin_providers.dart`; `features/admin/*` (12 screens);
-`widgets/app_data_table.dart`, `widgets/chart_card.dart`.
+**Backend — done and verified.**
 
-**Database.** Uses `announcements`, `system_settings`.
+* `repositories/admin.repository.ts` (institution-wide aggregates) and
+  `repositories/settings.repository.ts`; `user.repository.ts`, `assignment.repository.ts` and
+  `announcement.repository.ts` grew the admin queries they were missing.
+* `services/user.service.ts`, `services/roster.service.ts`, `services/announcement.service.ts`,
+  `services/admin.service.ts` — every write that touches two tables runs in one transaction, so
+  suspending a clerk frees their counter and ends their assignment together or not at all.
+* `serializers/admin.serializer.ts` · `validators/admin.validators.ts` (17 schemas) ·
+  `controllers/{user,roster,announcement,admin}.controller.ts` ·
+  `routes/{user,counter,announcement,dashboard,system}.routes.ts`.
+* Mounted: `/users` (+`/:id/status`, `/:id/role`, delete) · `/staff` CRUD and
+  `assign`/`unassign` · `/counters` CRUD and `assign` · `/services` CRUD, `/hours`, `/settings` ·
+  `/announcements/manage` plus `publish`/`archive` · `GET /dashboard/admin` ·
+  `GET|PUT /system/settings`.
 
-**API.** §54 Counters · §55 Staff · §9 Users · §11 Announcements · §12 Dashboards.
+**Decisions.** Announcement notifications fan out **once**, on the transition into `published` —
+re-publishing is a no-op, so nobody gets notified twice. Settings values are stored as text and a
+`null` deletes the key. `servedPerDay` is dense and always ends on the day being reported, so the
+chart cannot silently drop a quiet day.
 
-**Test.** Search and filter correctness (§40) · role matrix enforced on every admin route · queue monitor
-matches the database after a scripted sequence of staff actions.
+**Flutter — written.** 24 new files under `mobile/lib` (114 total), 4 under `mobile/test` (18 total):
+
+* `models/{admin_dashboard,staff_member,user_detail,system_setting}.dart`, plus `ManagedAnnouncement`
+  and the counter's service naming.
+* `services/admin_api.dart` → `repositories/admin_repository.dart` → `providers/admin_providers.dart`.
+* `features/admin/` — shell, dashboard, services + service form, counters, staff, users + user
+  detail, queue monitor + live board, announcements + composer, system settings, and two dialogs
+  (`widgets/staff_form_dialog.dart`, `widgets/user_status_chip.dart`); plus the shared
+  `widgets/app_data_table.dart` and `widgets/chart_card.dart`.
+* The guard now knows three consoles: a customer is kept out of both back offices, a clerk out of
+  administration, and an administrator may use either.
+
+**Database.** Uses `announcements`, `system_settings`. No migration.
+
+**API.** §54 Counters · §55 Staff · §9 Users · §11 Announcements · §12 Dashboards · §14 System.
+
+**Test.** `tests/admin.test.ts` — **59 tests, suite now 309**. The role matrix on every admin route
+(customer 403, staff 403, admin vs super-admin split, nobody administers themselves) · user status,
+role and delete rules including the counter being freed on suspension · the roster, its
+`unassigned=true` filter and the `STAFF_ALREADY_ASSIGNED` / `COUNTER_BUSY` conflicts · counter CRUD
+and assignment · service CRUD, hours and settings validation · announcement drafts, the one-shot
+publish fan-out, archive and delete · settings as text, `null` deleting a key, 403 for an ordinary
+admin · the dashboard's aggregates against a scripted day, `?days=` and `?date=`.
+
+Four Flutter suites: `admin_dashboard_test`, `admin_users_test`, `admin_staff_test`,
+`admin_monitor_test`.
+
+**Outstanding.** As with Phases 5 and 6, the Dart has not been compiled. Phase 7 closes when
+`flutter analyze && flutter test` run clean and an administrator has created a counter, posted a
+clerk to it and published an announcement on a device against the live API. Reports
+(`/admin/reports`) are Phase 8.
 
 ---
 
@@ -315,7 +357,7 @@ written.
 ## Optional extensions (only after Phase 10, §81)
 
 ☐ QR code on the ticket screen (`qr_flutter`, encodes `ticketNumber|id`)
-☐ Public display board (already scaffolded as a static page in Phase 7)
+☐ Public display board (a static page served by the API, sketched in §81)
 ☐ Priority categories (`normal|priority|emergency`, admin-set only, changes the call-next `ORDER BY`)
 ☐ Appointment + walk-in hybrid
 

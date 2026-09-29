@@ -16,8 +16,15 @@ class ServiceRepository {
     int limit = 20,
     String? search,
     String? category,
+    String? status,
   }) {
-    return _api.list(page: page, limit: limit, search: search, category: category);
+    return _api.list(
+      page: page,
+      limit: limit,
+      search: search,
+      category: category,
+      status: status,
+    );
   }
 
   Future<Service> byId(int id) => _api.byId(id);

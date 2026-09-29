@@ -328,13 +328,19 @@ The internal `threshold_notified` marker used to de-duplicate the "approaching" 
 GET    /counters?serviceId=1&status=available      staff+                        ✅ Phase 6
 PATCH  /counters/:id/status { status: "available" | "busy" | "offline" }         ✅ Phase 6
                                                    staff (own counter) / admin
-POST   /counters            { serviceId, counterNumber, name, status }   admin → 201   Phase 7
-PUT    /counters/:id        { counterNumber, name, status }              admin         Phase 7
-POST   /counters/:id/assign { staffId }  /  DELETE /counters/:id/assign  admin         Phase 7
+POST   /counters            { serviceId, counterNumber, name, staffId? }  admin → 201  ✅ Phase 7
+PUT    /counters/:id        { counterNumber, name, status }              admin         ✅ Phase 7
+DELETE /counters/:id                                                     admin → 204   ✅ Phase 7
+POST   /counters/:id/assign { staffId }  /  DELETE /counters/:id/assign  admin         ✅ Phase 7
 ```
 
 `409 COUNTER_NUMBER_TAKEN`, `409 STAFF_ALREADY_ASSIGNED`, `409 COUNTER_BUSY` (cannot take a counter
-offline while it is serving).
+offline, reassign it or delete it while it is serving).
+
+Creating a counter with `staffId` posts that clerk to it in the same transaction, so a counter is
+never left half-created if the clerk turns out to be assigned elsewhere. `POST /counters/:id/assign`
+ends any assignment the clerk already had; `DELETE /counters/:id/assign` frees the counter and closes
+the `staff_assignments` row.
 
 `GET /counters` returns the `toCounterDto` shape — `{ id, serviceId, serviceName, serviceCode,
 counterNumber, name, status, staff, currentTicket }`. A staff member asking for a `serviceId` that is
@@ -350,12 +356,26 @@ assignedStaffId }`.
 ```text
 GET  /staff/:id/statistics?from=&to=                             staff(self)+admin   ✅ Phase 6
 GET  /staff/:id/tickets?from=&to=&status=&page=&limit=           staff(self)+admin   ✅ Phase 6
-GET  /staff?serviceId=1&status=active&search=jane                            admin       Phase 7
-POST /staff  { firstName,lastName,email,phone,password,serviceId?,counterId? } admin → 201  Phase 7
-PUT  /staff/:id  { firstName,lastName,phone,status }                         admin       Phase 7
-POST /staff/:id/assign    { serviceId, counterId? }                          admin       Phase 7
-POST /staff/:id/unassign  { assignmentId? }                                  admin       Phase 7
+GET  /staff?serviceId=1&status=active&search=jane&unassigned=true          admin    ✅ Phase 7
+POST /staff  { firstName,lastName,email,phone,password,serviceId?,counterId? } admin → 201 ✅ Phase 7
+PUT  /staff/:id  { firstName,lastName,phone,status }                       admin    ✅ Phase 7
+POST /staff/:id/assign    { serviceId, counterId? }                        admin    ✅ Phase 7
+POST /staff/:id/unassign  { assignmentId? }                                admin    ✅ Phase 7
 ```
+
+A roster row is the user plus where they are working, or `null` when they have not been posted:
+
+```json
+{ "id": 4, "firstName": "Jane", "fullName": "Jane Wanjiku", "role": "staff", "status": "active",
+  "posting": { "assignmentId": 4, "serviceId": 1, "serviceName": "Finance Office",
+               "serviceCode": "FIN", "counterId": 2, "counterNumber": 2,
+               "counterName": "Finance Counter 2", "counterStatus": "available",
+               "assignedAt": "2026-09-01T05:00:00.000Z" } }
+```
+
+`unassigned=true` filters to clerks with no posting — the list an administrator works from when a
+counter needs covering. Suspending a clerk through `PUT /staff/:id` frees their counter and ends the
+assignment in the same transaction, so a suspended account can never hold a desk.
 
 `:id` accepts the literal `me`, so the client never has to interpolate its own user id into a URL it
 is already authenticated for. A staff member reading somebody else's figures gets `403`.
@@ -406,6 +426,19 @@ PATCH  /users/:id/role             { role }            super_admin only
 DELETE /users/:id                  super_admin only → 204
 ```
 
+`GET /users/:id` is the profile plus what the account has actually done:
+
+```json
+{ "data": { "id": 9, "fullName": "John Doe", "role": "customer", "status": "active",
+  "activity": { "totalTickets": 15, "completed": 11, "cancelled": 2, "noShow": 0,
+                "active": 2, "lastActivityAt": "2026-09-29T06:01:18.000Z" },
+  "posting": null } }
+```
+
+Nobody may administer their own account through these routes (`403`), an admin may not touch another
+admin, and only a super admin may change a role or delete. Suspending or demoting a clerk frees their
+counter. Deleting is refused with `409 CONFLICT` while the account still holds an active ticket.
+
 Own profile for every role:
 
 ```text
@@ -429,11 +462,19 @@ PATCH /notifications/read-all
 
 ```text
 GET    /announcements?serviceId=1                 any role — published & unexpired only
+GET    /announcements/:id                         any role — published only
+GET    /announcements/manage?status=draft&serviceId=&search=&page=&limit=   admin
+GET    /announcements/manage/:id                                            admin
 POST   /announcements  { title, content, serviceId?, expiresAt?, status }   admin → 201
-PUT    /announcements/:id
-PATCH  /announcements/:id/publish
-DELETE /announcements/:id
+PUT    /announcements/:id   { title, content, serviceId, clearService, expiresAt }
+PATCH  /announcements/:id/publish   ·   PATCH /announcements/:id/archive
+DELETE /announcements/:id                                                   admin → 204
 ```
+
+The public list never shows a draft, so the composer reads `/announcements/manage`, which carries the
+extra `status` field. Publishing fans a notification out to every active customer — service notices go
+only to that service's customers — and it happens **once**, on the transition *into* `published`;
+re-publishing an already-published notice is a no-op rather than a second round of notifications.
 
 ---
 
@@ -443,10 +484,10 @@ DELETE /announcements/:id
 
 ```json
 { "data": { "today": "2026-09-29",
-  "activeServices": 5, "activeQueues": 5, "activeCounters": 8,
+  "activeServices": 5, "activeQueues": 5, "activeCounters": 8, "staffOnDuty": 5,
   "customersWaiting": 32, "customersServedToday": 147,
   "averageWaitMinutes": 14, "averageServiceMinutes": 6,
-  "ticketsIssuedToday": 186, "cancelledToday": 7, "noShowToday": 4,
+  "ticketsIssuedToday": 186, "cancelledToday": 7, "skippedToday": 5, "noShowToday": 4,
   "byService": [ { "serviceId":1, "name":"Finance Office", "code":"FIN",
                    "waiting":12, "serving":2, "completed":45,
                    "averageWaitMinutes":18, "status":"open" } ],
@@ -456,7 +497,9 @@ DELETE /announcements/:id
 ```
 
 `servedPerDay` and `statusBreakdown` feed the charts of §42 — all values are SQL aggregates, none are
-hard-coded.
+hard-coded. ✅ Phase 7. `?days=7` sizes the chart window (1–31) and `?date=` reports a different day;
+the series is dense — quiet days come back as zeroes rather than gaps — and always ends on the day
+being reported.
 
 ### `GET /dashboard/staff?serviceId=&counterId=` (§20) — ✅ Phase 6
 
@@ -521,6 +564,11 @@ All accept `?from=YYYY-MM-DD&to=YYYY-MM-DD&serviceId=`; default range is today.
 GET   /system/settings          PUT /system/settings   { key: value, … }
 GET   /system/health            → public: { status:"ok", uptime, database:"up", time }
 ```
+
+A settings row is `{ key, value, description, updatedAt }`. Values are stored as text — `250` comes
+back as `"250"` and `false` as `"false"` — because the table is deliberately schemaless; the client
+interprets a value only where it needs to. Sending `null` for a key **deletes** it. Both routes are
+`super_admin` only; an ordinary admin gets `403`.
 
 ---
 

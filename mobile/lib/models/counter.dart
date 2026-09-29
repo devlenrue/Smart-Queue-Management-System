@@ -28,6 +28,8 @@ class ServiceCounter {
     required this.counterNumber,
     required this.name,
     required this.status,
+    this.serviceName,
+    this.serviceCode,
     this.staffName,
     this.staffId,
     this.currentTicket,
@@ -38,6 +40,11 @@ class ServiceCounter {
   final int counterNumber;
   final String name;
   final CounterStatus status;
+
+  /// Present on the admin reads, which list counters across services;
+  /// null on the staff console, which only ever sees its own service.
+  final String? serviceName;
+  final String? serviceCode;
   final String? staffName;
   final int? staffId;
   final String? currentTicket;
@@ -52,6 +59,8 @@ class ServiceCounter {
       counterNumber: Json.asInt(json['counterNumber']),
       name: Json.asString(json['name']),
       status: CounterStatus.parse(Json.asStringOrNull(json['status'])),
+      serviceName: Json.asStringOrNull(json['serviceName']),
+      serviceCode: Json.asStringOrNull(json['serviceCode']),
       staffId: staff == null ? null : Json.asIntOrNull(staff['id']),
       staffName: staff == null ? null : Json.asStringOrNull(staff['fullName']),
       currentTicket: Json.asStringOrNull(json['currentTicket']),

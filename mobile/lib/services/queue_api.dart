@@ -8,6 +8,20 @@ class QueueApi {
 
   final ApiClient _client;
 
+  /// Every queue open today — the picker on the admin monitor board.
+  Future<List<QueueStatusView>> list({String? date, int? serviceId, String? status}) async {
+    final response = await _client.get<List<Map<String, dynamic>>>(
+      ApiEndpoints.queues,
+      query: <String, dynamic>{
+        if (date != null) 'date': date,
+        if (serviceId != null) 'serviceId': serviceId,
+        if (status != null) 'status': status,
+      },
+      parse: Parse.list,
+    );
+    return response.data.map(QueueStatusView.fromJson).toList(growable: false);
+  }
+
   Future<QueueStatusView> status(int queueId) async {
     final response = await _client.get<Map<String, dynamic>>(
       ApiEndpoints.queueStatus(queueId),

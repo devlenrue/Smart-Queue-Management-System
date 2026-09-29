@@ -48,21 +48,25 @@ flowchart TD
     SDash --> STicket["/staff/queue/ticket/:id"]
     SQueue --> STicket
 
-    subgraph Admin["Admin shell · navigation drawer"]
-        ADash["/a/dashboard"]
-        ASvc["/a/services"]
-        ACounters["/a/counters"]
-        AStaff["/a/staff"]
-        AUsers["/a/users"]
-        AMonitor["/a/queues"]
-        AReports["/a/reports"]
-        AAnnounce["/a/announcements"]
-        ASettings["/a/settings"]
+    subgraph Admin["Admin shell · rail or drawer (Phase 7, built)"]
+        ADash["/admin/dashboard"]
+        ASvc["/admin/services"]
+        ACounters["/admin/counters"]
+        AStaff["/admin/staff"]
+        AUsers["/admin/users"]
+        AMonitor["/admin/queues"]
+        AAnnounce["/admin/announcements"]
+        ASettings["/admin/settings"]
     end
-    ASvc --> ASvcNew["/a/services/new"]
-    ASvc --> ASvcEdit["/a/services/:id/edit"]
-    AMonitor --> AMonitorOne["/a/queues/:serviceId"]
+    ASvc --> ASvcNew["/admin/services/new"]
+    ASvc --> ASvcEdit["/admin/services/:id/edit"]
+    AUsers --> AUserOne["/admin/users/:id"]
+    AMonitor --> AMonitorOne["/admin/queues/:serviceId"]
+    AAnnounce --> AAnnNew["/admin/announcements/new"]
+    AAnnounce --> AAnnEdit["/admin/announcements/:id/edit"]
 ```
+
+Reports (`/admin/reports`) is the one destination not yet in the rail — it arrives with Phase 8.
 
 ### 1.1 Route guard
 
@@ -72,19 +76,22 @@ A single `GoRouter.redirect` reads `authStateProvider`:
 loading / unknown                                                         → /
 unauthenticated + route not in {/, /login, /register, /forgot-password}   → /login
 authenticated   + route in the auth shell                                 → homeFor(role)
-authenticated   + route in {/settings, /about}                            → allowed for everyone
-customer        + route under /staff                                      → /home
-staff|admin     + route outside /staff and not shared                     → /staff/console
+authenticated   + route in {/settings, /about, /announcements}            → allowed for everyone
+customer        + route under /staff or /admin                            → /home
+staff           + route outside /staff and not shared                     → /staff/console
+admin|super     + route outside /staff and /admin and not shared          → /admin/dashboard
 ```
 
-`homeFor(role)`: `customer → /home`, `staff|admin|super_admin → /staff/console`.
+`homeFor(role)`: `customer → /home`, `staff → /staff/console`,
+`admin|super_admin → /admin/dashboard`.
 
-Administrators land on the staff console until their own shell arrives in Phase 7; the server
-exempts them from the assignment check, so they can supervise any desk from it.
+Administrators keep the staff console as well as their own: the server exempts them from the
+assignment check, so they can step onto any desk and call a ticket without being rostered to it.
 
-**As built.** The paths above are the ones in `lib/core/routing/route_paths.dart`. They are flat
-(`/home`, `/services`, `/staff/console`) rather than the `/c/…` `/s/…` `/a/…` namespaces originally
-sketched: one prefix, `/staff`, is all the guard needs to keep the two consoles apart, and a flat
+**As built.** The paths above are the ones in `lib/core/routing/route_paths.dart`. The customer
+namespace is flat (`/home`, `/services`) rather than the `/c/…` sketched here, and the two back
+offices spell their prefixes out — `/staff/…` and `/admin/…` — rather than abbreviating them to
+`/s/…` and `/a/…`. Two prefixes are all the guard needs to keep the three consoles apart, and a flat
 customer namespace keeps the deep links a marker types shorter.
 
 ---
@@ -141,10 +148,22 @@ clerk from being offered an action that could only ever answer 409.
 | Counters | grouped by service, status chips, assign-staff dialog |
 | Staff | table, create-staff dialog, assign / unassign, drill into statistics |
 | Users | table, search, role and status filters, suspend/activate |
+| User detail | the account, what it has done, and the controls allowed to the viewer |
 | Queue monitor | live board per service (now serving, counters, waiting list, stats) |
 | Reports | 4 tabs (daily / services / staff / queues), date-range picker, charts, CSV export |
 | Announcements | list + composer + publish toggle |
 | Settings | system settings (super admin) |
+
+**As built (Phase 7).** Eleven of the twelve are in `lib/features/admin/`; Reports is Phase 8. The
+shell is a `ShellRoute` — one navigator, a permanent rail on a laptop and a drawer on a phone — so a
+detail page such as `/admin/users/9` keeps the rail visible instead of covering it. The two charts
+are drawn with layout widgets and a `CustomPaint` arc rather than a chart package: the numbers come
+from one `GET /dashboard/admin`, and hand-drawing them keeps the render honest about what the server
+actually sent.
+
+The dashboard polls at three times the shared interval (`adminPollIntervalProvider`), because an
+institution-wide count does not change as fast as one counter's queue and a supervisor leaves the
+page open all day.
 
 Plus a **public display board** (`/display/:serviceCode`) — the optional §81 feature, also served as a
 static page by the API for a wall-mounted screen.

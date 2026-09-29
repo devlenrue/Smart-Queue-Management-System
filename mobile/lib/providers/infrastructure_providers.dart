@@ -8,12 +8,14 @@ import '../core/network/api_client.dart';
 import '../core/network/interceptors.dart';
 import '../core/storage/prefs_storage.dart';
 import '../core/storage/secure_storage.dart';
+import '../repositories/admin_repository.dart';
 import '../repositories/auth_repository.dart';
 import '../repositories/notification_repository.dart';
 import '../repositories/queue_repository.dart';
 import '../repositories/service_repository.dart';
 import '../repositories/staff_repository.dart';
 import '../repositories/ticket_repository.dart';
+import '../services/admin_api.dart';
 import '../services/auth_api.dart';
 import '../services/notification_api.dart';
 import '../services/queue_api.dart';
@@ -105,6 +107,9 @@ final Provider<NotificationApi> notificationApiProvider =
 final Provider<StaffApi> staffApiProvider =
     Provider<StaffApi>((Ref ref) => StaffApi(ref.watch(apiClientProvider)));
 
+final Provider<AdminApi> adminApiProvider =
+    Provider<AdminApi>((Ref ref) => AdminApi(ref.watch(apiClientProvider)));
+
 // ── repositories ──────────────────────────────────────────────────────────
 
 final Provider<AuthRepository> authRepositoryProvider = Provider<AuthRepository>((Ref ref) {
@@ -133,6 +138,10 @@ final Provider<NotificationRepository> notificationRepositoryProvider =
 
 final Provider<StaffRepository> staffRepositoryProvider = Provider<StaffRepository>((Ref ref) {
   return StaffRepository(ref.watch(staffApiProvider));
+});
+
+final Provider<AdminRepository> adminRepositoryProvider = Provider<AdminRepository>((Ref ref) {
+  return AdminRepository(ref.watch(adminApiProvider));
 });
 
 // ── preferences ───────────────────────────────────────────────────────────

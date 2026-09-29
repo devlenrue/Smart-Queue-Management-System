@@ -7,6 +7,9 @@ class QueueRepository {
 
   final QueueApi _api;
 
+  Future<List<QueueStatusView>> list({String? date, int? serviceId, String? status}) =>
+      _api.list(date: date, serviceId: serviceId, status: status);
+
   Future<QueueStatusView> status(int queueId) => _api.status(queueId);
 
   Future<QueueStatusView> forService(int serviceId) => _api.forService(serviceId);

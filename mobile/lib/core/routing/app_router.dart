@@ -2,6 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../features/admin/admin_dashboard_screen.dart';
+import '../../features/admin/admin_shell.dart';
+import '../../features/admin/announcement_form_screen.dart';
+import '../../features/admin/manage_announcements_screen.dart';
+import '../../features/admin/manage_counters_screen.dart';
+import '../../features/admin/manage_services_screen.dart';
+import '../../features/admin/manage_staff_screen.dart';
+import '../../features/admin/manage_users_screen.dart';
+import '../../features/admin/queue_board_screen.dart';
+import '../../features/admin/queue_monitor_screen.dart';
+import '../../features/admin/service_form_screen.dart';
+import '../../features/admin/system_settings_screen.dart';
+import '../../features/admin/user_detail_screen.dart';
 import '../../features/auth/forgot_password_screen.dart';
 import '../../features/auth/login_screen.dart';
 import '../../features/auth/register_screen.dart';
@@ -76,15 +89,25 @@ final Provider<GoRouter> goRouterProvider = Provider<GoRouter>((Ref ref) {
       // Settings and About belong to everyone.
       if (RoutePaths.sharedRoutes.contains(location)) return null;
 
-      // One prefix check each way keeps the two consoles apart: a customer
-      // cannot open the staff console, and a clerk is not dropped into the
-      // customer app where they have no tickets of their own.
+      // Two prefixes keep the three consoles apart. A customer cannot open
+      // either of the back offices; a clerk cannot open administration; and
+      // neither of them is dropped into a part of the app where they have
+      // nothing to do.
       final bool wantsStaff = RoutePaths.isStaffRoute(location);
-      final bool maySeeStaff = role != UserRole.customer;
-      if (wantsStaff && !maySeeStaff) return RoutePaths.home;
-      if (!wantsStaff && maySeeStaff) return home;
+      final bool wantsAdmin = RoutePaths.isAdminRoute(location);
 
-      return null;
+      switch (role) {
+        case UserRole.customer:
+          return wantsStaff || wantsAdmin ? RoutePaths.home : null;
+        case UserRole.staff:
+          return wantsStaff ? null : RoutePaths.staffHome;
+        case UserRole.admin:
+        case UserRole.superAdmin:
+          // An administrator may also work a counter — the server exempts
+          // them from the assignment check — so the staff console stays
+          // open to them.
+          return wantsStaff || wantsAdmin ? null : home;
+      }
     },
     routes: <RouteBase>[
       GoRoute(
@@ -243,6 +266,89 @@ final Provider<GoRouter> goRouterProvider = Provider<GoRouter>((Ref ref) {
         ],
       ),
 
+      // The administrator console. A plain ShellRoute rather than an
+      // indexed stack: these screens are tables that re-read when opened,
+      // so there is no per-tab history worth preserving, and one navigator
+      // keeps the drawer and the deep links simple.
+      ShellRoute(
+        builder: (BuildContext context, GoRouterState state, Widget child) {
+          return AdminShell(location: state.matchedLocation, child: child);
+        },
+        routes: <RouteBase>[
+          GoRoute(
+            path: RoutePaths.adminHome,
+            builder: (BuildContext context, GoRouterState state) => const AdminDashboardScreen(),
+          ),
+          GoRoute(
+            path: RoutePaths.adminServices,
+            builder: (BuildContext context, GoRouterState state) => const ManageServicesScreen(),
+            routes: <RouteBase>[
+              GoRoute(
+                path: 'new',
+                builder: (BuildContext context, GoRouterState state) => const ServiceFormScreen(),
+              ),
+              GoRoute(
+                path: ':id/edit',
+                builder: (BuildContext context, GoRouterState state) =>
+                    ServiceFormScreen(serviceId: _idOf(state)),
+              ),
+            ],
+          ),
+          GoRoute(
+            path: RoutePaths.adminCounters,
+            builder: (BuildContext context, GoRouterState state) => const ManageCountersScreen(),
+          ),
+          GoRoute(
+            path: RoutePaths.adminStaff,
+            builder: (BuildContext context, GoRouterState state) => const ManageStaffScreen(),
+          ),
+          GoRoute(
+            path: RoutePaths.adminUsers,
+            builder: (BuildContext context, GoRouterState state) => const ManageUsersScreen(),
+            routes: <RouteBase>[
+              GoRoute(
+                path: ':id',
+                builder: (BuildContext context, GoRouterState state) =>
+                    UserDetailScreen(userId: _idOf(state)),
+              ),
+            ],
+          ),
+          GoRoute(
+            path: RoutePaths.adminQueues,
+            builder: (BuildContext context, GoRouterState state) => const QueueMonitorScreen(),
+            routes: <RouteBase>[
+              GoRoute(
+                path: ':serviceId',
+                builder: (BuildContext context, GoRouterState state) => QueueBoardScreen(
+                  serviceId: int.tryParse(state.pathParameters['serviceId'] ?? '') ?? -1,
+                ),
+              ),
+            ],
+          ),
+          GoRoute(
+            path: RoutePaths.adminAnnouncements,
+            builder: (BuildContext context, GoRouterState state) =>
+                const ManageAnnouncementsScreen(),
+            routes: <RouteBase>[
+              GoRoute(
+                path: 'new',
+                builder: (BuildContext context, GoRouterState state) =>
+                    const AnnouncementFormScreen(),
+              ),
+              GoRoute(
+                path: ':id/edit',
+                builder: (BuildContext context, GoRouterState state) =>
+                    AnnouncementFormScreen(announcementId: _idOf(state)),
+              ),
+            ],
+          ),
+          GoRoute(
+            path: RoutePaths.adminSettings,
+            builder: (BuildContext context, GoRouterState state) => const SystemSettingsScreen(),
+          ),
+        ],
+      ),
+
       GoRoute(
         path: RoutePaths.announcements,
         builder: (BuildContext context, GoRouterState state) => const AnnouncementsScreen(),
@@ -271,11 +377,20 @@ final Provider<GoRouter> goRouterProvider = Provider<GoRouter>((Ref ref) {
 
 /// Where each role lands after signing in.
 ///
-/// Administrators go to the staff console for now: the server exempts them
-/// from the assignment check, so they can supervise any desk. Their own
-/// console arrives with Phase 7.
-String homeFor(UserRole role) =>
-    role == UserRole.customer ? RoutePaths.home : RoutePaths.staffHome;
+/// Administrators have had their own console since Phase 7; they can still
+/// reach the staff console from it, because the server exempts them from
+/// the assignment check and lets them supervise any desk.
+String homeFor(UserRole role) {
+  switch (role) {
+    case UserRole.customer:
+      return RoutePaths.home;
+    case UserRole.staff:
+      return RoutePaths.staffHome;
+    case UserRole.admin:
+    case UserRole.superAdmin:
+      return RoutePaths.adminHome;
+  }
+}
 
 /// A malformed `:id` should land on the not-found screen, not crash.
 int _idOf(GoRouterState state) => int.tryParse(state.pathParameters['id'] ?? '') ?? -1;

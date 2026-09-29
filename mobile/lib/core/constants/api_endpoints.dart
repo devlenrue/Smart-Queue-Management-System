@@ -54,6 +54,20 @@ class ApiEndpoints {
   static const String myHandledTickets = '/staff/me/tickets';
   static String staffStatistics(int id) => '/staff/$id/statistics';
 
+  // admin console (Phase 7)
+  static const String adminDashboard = '/dashboard/admin';
+  static const String users = '/users';
+  static String user(int id) => '/users/$id';
+  static String userStatus(int id) => '/users/$id/status';
+  static String userRole(int id) => '/users/$id/role';
+  static const String staffRoster = '/staff';
+  static String staffMember(int id) => '/staff/$id';
+  static String assignStaff(int id) => '/staff/$id/assign';
+  static String unassignStaff(int id) => '/staff/$id/unassign';
+  static String counter(int id) => '/counters/$id';
+  static String counterAssignment(int id) => '/counters/$id/assign';
+  static const String systemSettings = '/system/settings';
+
   // notifications
   static const String notifications = '/notifications';
   static const String unreadCount = '/notifications/unread-count';
@@ -63,6 +77,14 @@ class ApiEndpoints {
   // announcements
   static const String announcements = '/announcements';
   static String announcement(int id) => '/announcements/$id';
+
+  /// The composer's own list, which — unlike the public board — includes
+  /// drafts and archived notices. Declared before `/:id` on the server so
+  /// "manage" is never parsed as an id.
+  static const String manageAnnouncements = '/announcements/manage';
+  static String manageAnnouncement(int id) => '/announcements/manage/$id';
+  static String publishAnnouncement(int id) => '/announcements/$id/publish';
+  static String archiveAnnouncement(int id) => '/announcements/$id/archive';
 
   // system
   static const String health = '/system/health';

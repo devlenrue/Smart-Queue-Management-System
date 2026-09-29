@@ -32,11 +32,33 @@ class RoutePaths {
   static const String staffStats = '/staff/statistics';
   static const String staffProfile = '/staff/profile';
 
+  // admin console (§2.4). Its own namespace for the same reason /staff has
+  // one: the guard needs a single prefix check per role.
+  static const String adminHome = '/admin/dashboard';
+  static const String adminServices = '/admin/services';
+  static const String adminServiceNew = '/admin/services/new';
+  static const String adminServiceEdit = '/admin/services/:id/edit';
+  static const String adminCounters = '/admin/counters';
+  static const String adminStaff = '/admin/staff';
+  static const String adminUsers = '/admin/users';
+  static const String adminUserDetail = '/admin/users/:id';
+  static const String adminQueues = '/admin/queues';
+  static const String adminQueueBoard = '/admin/queues/:serviceId';
+  static const String adminAnnouncements = '/admin/announcements';
+  static const String adminAnnouncementNew = '/admin/announcements/new';
+  static const String adminAnnouncementEdit = '/admin/announcements/:id/edit';
+  static const String adminSettings = '/admin/settings';
+
   static String serviceDetailOf(int id) => '/services/$id';
   static String ticketDetailOf(int id) => '/tickets/$id';
   static String queueTrackingOf(int id) => '/tickets/$id/queue';
   static String announcementDetailOf(int id) => '/announcements/$id';
   static String staffTicketOf(int id) => '/staff/queue/ticket/$id';
+
+  static String adminServiceEditOf(int id) => '/admin/services/$id/edit';
+  static String adminUserOf(int id) => '/admin/users/$id';
+  static String adminQueueBoardOf(int serviceId) => '/admin/queues/$serviceId';
+  static String adminAnnouncementEditOf(int id) => '/admin/announcements/$id/edit';
 
   /// Routes reachable without a session.
   static const Set<String> publicRoutes = <String>{
@@ -52,5 +74,11 @@ class RoutePaths {
   /// The staff namespace. Everything under it needs `staff` or better.
   static const String staffPrefix = '/staff';
 
+  /// The admin namespace. Everything under it needs `admin` or better; the
+  /// two pages that also need `super_admin` say so on the server.
+  static const String adminPrefix = '/admin';
+
   static bool isStaffRoute(String location) => location.startsWith(staffPrefix);
+
+  static bool isAdminRoute(String location) => location.startsWith(adminPrefix);
 }
