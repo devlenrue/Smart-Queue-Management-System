@@ -157,7 +157,7 @@ final Provider<ReportRepository> reportRepositoryProvider = Provider<ReportRepos
 /// Where an exported CSV is written. Overridden in tests so the export can
 /// be exercised without a platform channel (§41).
 final Provider<ReportExporter> reportExporterProvider = Provider<ReportExporter>((Ref ref) {
-  return const FileReportExporter();
+  return createReportExporter();
 });
 
 // ── preferences ───────────────────────────────────────────────────────────

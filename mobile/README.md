@@ -28,6 +28,7 @@ cd mobile
 
 # 1. generate android/ ios/ web/ … for your machine
 flutter create .
+rm -f test/widget_test.dart    # see below
 
 # 2. dependencies
 flutter pub get
@@ -36,8 +37,19 @@ flutter pub get
 #    cd ../server && npm run dev        → http://localhost:5000
 
 # 4. run
-flutter run
+flutter devices                # what can you actually run on?
+flutter run -d linux           # or -d chrome, -d <emulator-id>, …
 ```
+
+`flutter create .` does not overwrite anything that already exists — its
+`--overwrite` flag defaults to false — so `lib/`, `test/`, `pubspec.yaml` and
+`analysis_options.yaml` are safe. It does add one file that does not belong
+to this project: **`test/widget_test.dart`**, the counter-app template test.
+It refers to a `MyApp` that does not exist here, so it fails the moment you
+run `flutter test`. Delete it; `.gitignore` keeps it out if it comes back.
+
+**Linux, macOS and Windows desktop are the easiest first run** — no emulator,
+no cleartext policy, and the CSV export writes a real file you can open.
 
 ### Pointing the app at your server
 
@@ -50,9 +62,20 @@ Anything else needs an override:
 | Android emulator | `flutter run` (default) |
 | iOS simulator / desktop | `flutter run --dart-define=API_BASE_URL=http://localhost:5000/api/v1` |
 | Physical phone on Wi‑Fi | `flutter run --dart-define=API_BASE_URL=http://192.168.x.x:5000/api/v1` |
+| Chrome | `flutter run -d chrome --dart-define=API_BASE_URL=http://localhost:5000/api/v1` |
 
 The address currently in use is shown on the login screen and under
 **Settings → Connection**, so a misconfigured build is obvious immediately.
+
+### A note on the web build
+
+The app runs in a browser, but two things differ. `path_provider` has no web
+implementation, so a report export cannot write to a documents directory —
+`ReportExporter` is split by a conditional import and the web half hands the
+CSV to the browser as an ordinary download instead. And because importing
+`dart:io` anywhere `main()` can reach makes the whole program unbuildable for
+the web, the `dart:io` half lives in its own library
+(`core/export/report_exporter_io.dart`) that a web build never loads.
 
 Android also needs cleartext HTTP for a plain `http://` dev server; add
 `android:usesCleartextTraffic="true"` to the `<application>` tag in

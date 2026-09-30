@@ -1,6 +1,10 @@
-import 'dart:io';
-
-import 'package:path_provider/path_provider.dart';
+// The platform half is chosen at compile time. Importing `dart:io` from a
+// library that `main()` can reach makes the whole program unbuildable for the
+// web — `flutter build web` stops with "Dart library 'dart:io' is not
+// available on this platform" — even though nothing ever exports a report on
+// startup. Keeping the interface here and the implementations behind a
+// conditional import is the standard way out.
+import 'report_exporter_web.dart' if (dart.library.io) 'report_exporter_io.dart';
 
 /// Where an exported report ends up.
 ///
@@ -9,30 +13,12 @@ import 'package:path_provider/path_provider.dart';
 /// device or a mocked channel, and neither belongs in a test about whether
 /// the button works.
 abstract class ReportExporter {
-  /// Writes [contents] under [filename] and returns the full path, which
-  /// the screen shows so the marker can go and open the file.
+  /// Writes [contents] under [filename] and returns a human-readable
+  /// destination, which the screen shows so the marker can go and open it.
   Future<String> save(String filename, String contents);
 }
 
-/// Saves into the app's documents directory.
-///
-/// Deliberately not a share sheet: §82 rules out extra platform plugins,
-/// and a file on disk is enough to prove the export works — on Android it
-/// lands in the app's own storage, on a desktop run it is a normal file in
-/// the user's documents folder.
-class FileReportExporter implements ReportExporter {
-  const FileReportExporter();
-
-  @override
-  Future<String> save(String filename, String contents) async {
-    final Directory directory = await getApplicationDocumentsDirectory();
-    final Directory reports = Directory('${directory.path}/smartqueue-reports');
-    if (!await reports.exists()) {
-      await reports.create(recursive: true);
-    }
-
-    final File file = File('${reports.path}/$filename');
-    await file.writeAsString(contents);
-    return file.path;
-  }
-}
+/// The exporter for whichever platform this build targets:
+/// a file in the documents directory on mobile and desktop, a browser
+/// download on the web.
+ReportExporter createReportExporter() => createPlatformReportExporter();
