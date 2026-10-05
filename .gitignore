@@ -1,0 +1,19 @@
+# Node.js
+backend/node_modules/
+backend/.env
+npm-debug.log*
+
+# Flutter/Dart
+flutter_app/.dart_tool/
+flutter_app/.packages
+flutter_app/.flutter-plugins
+flutter_app/.flutter-plugins-dependencies
+flutter_app/build/
+flutter_app/coverage/
+flutter_app/ios/Pods/
+flutter_app/ios/Podfile.lock
+
+# IDE files
+.idea/
+.vscode/
+.DS_Store
